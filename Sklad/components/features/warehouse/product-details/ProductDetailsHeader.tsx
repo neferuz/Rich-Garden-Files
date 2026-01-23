@@ -36,8 +36,8 @@ export function ProductDetailsHeader({
                         }} />
                         <div className="absolute top-10 right-0 z-[60] w-52 bg-white rounded-[24px] shadow-xl border border-gray-100 p-2 animate-in fade-in slide-in-from-top-4 zoom-in-95 duration-200 origin-top-right">
                             <div className="flex flex-col gap-1">
-                                {/* Edit Button - Only for Non-Bouquets */}
-                                {!isBouquet && !isEditing && (
+                                {/* Edit Button - All */}
+                                {!isEditing && (
                                     <button
                                         onClick={() => {
                                             setIsEditing(true);
@@ -52,35 +52,7 @@ export function ProductDetailsHeader({
                                     </button>
                                 )}
 
-                                {/* Save/Cancel Buttons */}
-                                {isEditing && (
-                                    <>
-                                        <button
-                                            onClick={() => {
-                                                handleSave();
-                                                setIsMenuOpen(false);
-                                            }}
-                                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-blue-600 hover:bg-blue-50 transition-all active:scale-[0.98] group"
-                                        >
-                                            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                                                <Check size={16} />
-                                            </div>
-                                            <span className="font-bold text-sm">Сохранить</span>
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setIsEditing(false);
-                                                setIsMenuOpen(false);
-                                            }}
-                                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-500 hover:bg-gray-50 transition-all active:scale-[0.98] group"
-                                        >
-                                            <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center group-hover:bg-gray-100 transition-colors">
-                                                <X size={16} />
-                                            </div>
-                                            <span className="font-bold text-sm">Отмена</span>
-                                        </button>
-                                    </>
-                                )}
+
 
                                 {/* Delete Button - All */}
                                 <button

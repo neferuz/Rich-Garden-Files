@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { ChevronLeft, ArrowUpRight, ArrowDownLeft, Wallet, TrendingUp, Calendar as CalendarIcon, Download, X, Filter, Check, User, Package } from "lucide-react"
 import Link from "next/link"
+import { motion } from "framer-motion"
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, startOfMonth, endOfMonth, subWeeks, subMonths } from "date-fns"
 import { ru } from "date-fns/locale"
 import { api } from "@/services/api"
@@ -491,9 +492,20 @@ export default function FinancePage() {
                     className={`fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex flex-col justify-end transition-opacity duration-300 ${isClosingTx ? 'opacity-0' : 'opacity-100'}`}
                     onClick={handleCloseTx}
                 >
-                    <div
-                        className={`w-full bg-[#F2F4F8] rounded-t-[32px] overflow-hidden flex flex-col h-[85vh] mt-auto shadow-2xl relative ${isClosingTx ? 'animate-slide-down' : 'animate-slide-up'}`}
+                    <motion.div
+                        className={`w-full bg-[#F2F4F8] rounded-t-[32px] overflow-hidden flex flex-col h-[85vh] mt-auto shadow-2xl relative`}
                         onClick={e => e.stopPropagation()}
+                        initial={{ y: "100%" }}
+                        animate={{ y: isClosingTx ? "100%" : "0%" }}
+                        transition={{ type: "spring", damping: 30, stiffness: 300 }}
+                        drag="y"
+                        dragConstraints={{ top: 0, bottom: 0 }}
+                        dragElastic={{ top: 0, bottom: 0.2 }}
+                        onDragEnd={(_, info) => {
+                            if (info.offset.y > 150 || info.velocity.y > 500) {
+                                handleCloseTx()
+                            }
+                        }}
                     >
                         {/* Header */}
                         <div className="bg-white/80 backdrop-blur-md px-6 py-4 flex items-center justify-between border-b border-gray-200/50 sticky top-0 z-30">
@@ -617,7 +629,7 @@ export default function FinancePage() {
                                 </>
                             )}
                         </div>
-                    </div>
+                    </motion.div>
                 </div>
             )}
         </div>

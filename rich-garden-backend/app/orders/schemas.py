@@ -4,7 +4,7 @@ import datetime
 
 class TelegramUserMinimal(BaseModel):
     id: int
-    telegram_id: int
+    telegram_id: Optional[int] = None
     first_name: str
     username: Optional[str] = None
     photo_url: Optional[str] = None

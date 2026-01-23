@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ShoppingBag, Heart, Filter, X, ArrowUpDown, ChevronDown, Clock } from 'lucide-react'
+import { ChevronLeft, ShoppingBag, Heart, Filter, X, ArrowUpDown, ChevronDown, Clock, Check, Plus } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -53,7 +53,10 @@ export default function CategoryContent({ categorySlug }: { categorySlug: string
     const [sortBy, setSortBy] = useState<'new' | 'price-asc' | 'price-desc'>('new')
     const [isSortOpen, setIsSortOpen] = useState(false)
     const { isFavorite, toggleFavorite } = useFavorites()
-    const { addToCart } = useCart()
+    const { addToCart, cartItems, removeFromCart } = useCart()
+
+    const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0)
+    const isInCart = (productId: number | string) => cartItems.some(item => String(item.product.id) === String(productId));
 
     useEffect(() => {
         // Fetch all products to determine active categories
@@ -129,7 +132,11 @@ export default function CategoryContent({ categorySlug }: { categorySlug: string
 
                     <Link href="/cart" className="w-10 h-10 flex items-center justify-center relative active:scale-95 transition-transform">
                         <ShoppingBag size={22} strokeWidth={1.5} className="text-black" />
-                        <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+                        {cartCount > 0 && (
+                            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-[9px] font-bold text-white shadow-sm font-sans tracking-tight">
+                                {cartCount}
+                            </span>
+                        )}
                     </Link>
                 </div>
 
@@ -233,16 +240,23 @@ export default function CategoryContent({ categorySlug }: { categorySlug: string
                                                     onClick={(e) => {
                                                         e.preventDefault()
                                                         e.stopPropagation()
-                                                        addToCart(productData)
-                                                        toast.dismiss()
-                                                        toast.success("Добавлено в корзину", {
-                                                            description: product.name,
-                                                            duration: 2000
-                                                        })
+                                                        if (isInCart(product.id)) {
+                                                            removeFromCart(product.id)
+                                                            toast.error("Удалено из корзины", { description: product.name })
+                                                        } else {
+                                                            addToCart(productData)
+                                                            toast.dismiss()
+                                                            toast.success("Добавлено в корзину", {
+                                                                description: product.name,
+                                                                duration: 2000
+                                                            })
+                                                        }
                                                     }}
-                                                    className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center active:scale-95 transition-transform hover:bg-gray-800 shadow-sm"
+                                                    className={cn(
+                                                        "w-8 h-8 rounded-full flex items-center justify-center active:scale-95 transition-all shadow-sm bg-black text-white hover:bg-gray-800"
+                                                    )}
                                                 >
-                                                    <ShoppingBag size={14} />
+                                                    {isInCart(product.id) ? <Check size={14} strokeWidth={3} /> : <Plus size={14} />}
                                                 </button>
                                             </div>
                                         </div>

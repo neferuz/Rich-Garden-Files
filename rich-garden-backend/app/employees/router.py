@@ -14,8 +14,8 @@ def get_employees(db: Session = Depends(get_db)):
     return service.get_all_employees(db)
 
 @router.post("", response_model=schemas.Employee)
-def create_employee(employee: schemas.EmployeeCreate, db: Session = Depends(get_db)):
-    return service.create_employee(db, employee)
+async def create_employee(employee: schemas.EmployeeCreate, db: Session = Depends(get_db)):
+    return await service.create_employee(db, employee)
 
 @router.put("/{employee_id}", response_model=schemas.Employee)
 def update_employee(employee_id: int, employee_update: schemas.EmployeeUpdate, db: Session = Depends(get_db)):

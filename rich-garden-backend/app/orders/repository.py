@@ -72,3 +72,10 @@ def update_telegram_message_id(db: Session, order_id: int, message_id: int):
         order.telegram_message_id = message_id
         db.commit()
 
+def delete(db: Session, order_id: int):
+    order = get_by_id(db, order_id)
+    if order:
+        db.delete(order)
+        db.commit()
+
+

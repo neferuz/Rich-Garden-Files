@@ -1,13 +1,16 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
 from . import models, schemas
 import datetime
 
 def get_by_telegram_id(db: Session, telegram_id: int):
-    return db.query(models.TelegramUser).filter(models.TelegramUser.telegram_id == telegram_id).first()
+    return db.query(models.TelegramUser).options(joinedload(models.TelegramUser.addresses)).filter(models.TelegramUser.telegram_id == telegram_id).first()
 
 def get_by_id(db: Session, user_id: int):
-    return db.query(models.TelegramUser).filter(models.TelegramUser.id == user_id).first()
+    return db.query(models.TelegramUser).options(joinedload(models.TelegramUser.addresses)).filter(models.TelegramUser.id == user_id).first()
+
+def get_by_phone(db: Session, phone_number: str):
+    return db.query(models.TelegramUser).filter(models.TelegramUser.phone_number == phone_number).first()
 
 def create_or_update_telegram_user(db: Session, user: schemas.TelegramUserCreate):
     db_user = get_by_telegram_id(db, user.telegram_id)
@@ -25,7 +28,27 @@ def create_or_update_telegram_user(db: Session, user: schemas.TelegramUserCreate
                 _update_user_fields(db, db_user, user)
     else:
         _update_user_fields(db, db_user, user)
-        
+    
+    return db_user
+
+def create_offline_user(db: Session, user: schemas.TelegramUserCreate):
+    # Check by phone first if provided
+    if user.phone_number:
+        db_user = get_by_phone(db, user.phone_number)
+        if db_user:
+            # Update fields
+            _update_user_fields(db, db_user, user)
+            return db_user
+            
+    # If no phone or not found, check if telegram_id provided (shouldn't be for purely offline but handled)
+    if user.telegram_id:
+        return create_or_update_telegram_user(db, user)
+
+    # Create new offline user
+    db_user = models.TelegramUser(**user.dict())
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
     return db_user
 
 def _update_user_fields(db: Session, db_user: models.TelegramUser, user_data: schemas.TelegramUserCreate):
@@ -34,11 +57,13 @@ def _update_user_fields(db: Session, db_user: models.TelegramUser, user_data: sc
     db_user.photo_url = user_data.photo_url
     if user_data.phone_number:
         db_user.phone_number = user_data.phone_number
+    if user_data.birth_date:
+        db_user.birth_date = user_data.birth_date
     db.commit()
     db.refresh(db_user)
 
 def get_all_clients(db: Session):
-    return db.query(models.TelegramUser).order_by(models.TelegramUser.created_at.desc()).all()
+    return db.query(models.TelegramUser).options(joinedload(models.TelegramUser.addresses)).order_by(models.TelegramUser.created_at.desc()).all()
 
 def create_address(db: Session, telegram_id: int, address: schemas.AddressCreate):
     user = get_by_telegram_id(db, telegram_id)

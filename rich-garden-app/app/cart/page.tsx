@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -13,7 +13,19 @@ import { motion, useMotionValue, useTransform, animate, AnimatePresence, PanInfo
 
 export default function CartPage() {
     const router = useRouter()
-    const { cartItems, updateQuantity, removeFromCart, totalPrice, clearCart } = useCart()
+    const { cartItems, updateQuantity, removeFromCart, totalPrice, clearCart, addToCart } = useCart()
+    const [recommendations, setRecommendations] = useState<any[]>([])
+    const [isLoadingRecs, setIsLoadingRecs] = useState(true)
+
+    useEffect(() => {
+        api.getProducts('Подборка для гостей')
+            .then(data => {
+                setRecommendations(data.filter(p => p.stock_quantity > 0))
+            })
+            .catch(console.error)
+            .finally(() => setIsLoadingRecs(false))
+    }, [])
+
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [showClearDialog, setShowClearDialog] = useState(false)
 
@@ -88,7 +100,7 @@ export default function CartPage() {
 
             <div className="px-4 flex flex-col gap-4">
                 {/* Items List */}
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-3 max-h-[240px] overflow-y-auto no-scrollbar py-1">
                     <AnimatePresence mode="popLayout">
                         {cartItems.map((item) => (
                             <SwipeableCartItem
@@ -126,61 +138,78 @@ export default function CartPage() {
                 </div>
 
                 {/* Recommended Section */}
-                <div className="mt-2">
-                    <h3 className="text-[20px] font-bold text-black mb-4 px-1">Подобрали для вас</h3>
-                    <div className="flex gap-4 overflow-x-auto no-scrollbar px-6 py-2 snap-x snap-mandatory -mx-4">
-                        {[
-                            { id: 901, name: 'Открытка', price: 15000, color: 'bg-pink-100' },
-                            { id: 902, name: 'Топпер', price: 25000, color: 'bg-blue-100' },
-                            { id: 903, name: 'Конфеты', price: 45000, color: 'bg-amber-100' },
-                            { id: 904, name: 'Шар гелиевый', price: 12000, color: 'bg-purple-100' },
-                            { id: 905, name: 'Лента атласная', price: 5000, color: 'bg-red-100' },
-                            { id: 906, name: 'Мягкая игрушка', price: 85000, color: 'bg-gray-100' },
-                        ].map((rec) => (
-                            <div key={rec.id} className="min-w-[170px] snap-center flex flex-col gap-3">
-                                {/* Image Container */}
-                                <div className={`relative w-full h-[220px] ${rec.color} rounded-[24px] overflow-hidden`}>
-                                    {/* Like Button */}
-                                    <button className="absolute top-3 right-3 w-8 h-8 bg-white/40 backdrop-blur-md rounded-full flex items-center justify-center active:scale-90 transition-transform">
-                                        <Heart size={18} className="text-black" />
-                                    </button>
+                {recommendations.length > 0 && (
+                    <div className="mt-2 text-left">
+                        <h3 className="text-[18px] font-bold text-black mb-4 px-1">Подобрали для вас</h3>
+                        <div className="flex gap-4 overflow-x-auto no-scrollbar px-6 py-2 snap-x snap-mandatory -mx-4">
+                            {recommendations.map((rec) => {
+                                const imageUrl = rec.image.startsWith('http') ? rec.image : `http://localhost:8000${rec.image}`;
 
-                                    {/* Rating Badge */}
-                                    <div className="absolute bottom-3 left-3 px-2.5 py-1 bg-white/40 backdrop-blur-md rounded-[12px] flex items-center gap-1">
-                                        <Star size={12} className="fill-yellow-400 text-yellow-400" />
-                                        <span className="text-[13px] font-bold text-black">5</span>
-                                    </div>
-                                </div>
+                                return (
+                                    <Link
+                                        href={`/product/${rec.id}`}
+                                        key={rec.id}
+                                        className="min-w-[150px] snap-center flex flex-col gap-2 group cursor-pointer"
+                                    >
+                                        {/* Image Container */}
+                                        <div className="relative w-full h-[155px] bg-[#F7F7F7] rounded-[22px] overflow-hidden border border-gray-100/50">
+                                            <Image
+                                                src={imageUrl}
+                                                alt={rec.name}
+                                                fill
+                                                className="object-cover transition-transform duration-500 group-hover:scale-110"
+                                            />
+                                        </div>
 
-                                {/* Content */}
-                                <div>
-                                    <h4 className="text-[16px] font-medium text-black leading-tight mb-2 truncate px-1">{rec.name}</h4>
-                                    <div className="flex items-center justify-between px-1">
-                                        <span className="text-[17px] font-bold text-black">{rec.price.toLocaleString()} сум</span>
-                                        <button className="w-9 h-9 bg-black rounded-full flex items-center justify-center text-white active:scale-90 transition-transform">
-                                            <Plus size={20} strokeWidth={2.5} />
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
+                                        {/* Content */}
+                                        <div className="text-left px-0.5">
+                                            <h4 className="text-[14px] font-bold text-gray-900 leading-tight mb-1 truncate">{rec.name}</h4>
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[15px] font-bold text-black">{rec.price_raw?.toLocaleString()} сум</span>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        addToCart(rec);
+                                                        toast.success("Добавлено в корзину", {
+                                                            description: rec.name,
+                                                            duration: 2000,
+                                                        });
+                                                    }}
+                                                    className="w-8 h-8 bg-black rounded-full flex items-center justify-center text-white active:scale-90 transition-transform z-10"
+                                                >
+                                                    <Plus size={18} strokeWidth={2.5} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </Link>
+                                );
+                            })}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Footer Actions Spacer */}
                 <div className="h-4" />
             </div>
 
             {/* Sticky Bottom Action Bar */}
-            <div className="fixed bottom-8 left-0 right-0 px-4 z-40 pointer-events-none">
-                <div className="w-full flex justify-center pointer-events-auto">
-                    <div className="w-full max-w-[340px]">
-                        <SwipeButton
-                            totalPrice={totalPrice}
-                            onConfirm={handleCheckout}
-                            isLoading={isSubmitting}
-                        />
-                    </div>
+            <div className="fixed bottom-8 left-0 right-0 px-4 z-40">
+                <div className="w-full flex justify-center">
+                    <button
+                        onClick={handleCheckout}
+                        disabled={isSubmitting}
+                        className="w-full max-w-[340px] h-16 bg-black text-white rounded-full flex items-center justify-between px-8 shadow-2xl active:scale-95 transition-all disabled:opacity-50 disabled:active:scale-100"
+                    >
+                        <div className="flex flex-col items-start leading-tight">
+                            <span className="text-[14px] text-white/60 font-medium">К оплате</span>
+                            <span className="text-[17px] font-bold">{(totalPrice + 10000 + 650).toLocaleString()} сум</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[17px] font-black uppercase tracking-tight">Оформить</span>
+                            <ChevronRight size={20} strokeWidth={3} />
+                        </div>
+                    </button>
                 </div>
             </div>
 
@@ -238,59 +267,6 @@ export default function CartPage() {
     )
 }
 
-function SwipeButton({ totalPrice, onConfirm, isLoading }: { totalPrice: number, onConfirm: () => void, isLoading: boolean }) {
-    const x = useMotionValue(0)
-    const textOpacity = useTransform(x, [0, 150], [1, 0])
-
-    const handleDragEnd = () => {
-        if (x.get() > 200) {
-            if (typeof navigator !== 'undefined' && navigator.vibrate) {
-                try { navigator.vibrate(50) } catch (e) { }
-            }
-            onConfirm()
-        } else {
-            animate(x, 0, { type: "spring", stiffness: 400, damping: 30 })
-        }
-    }
-
-    return (
-        <div className="relative h-16 bg-black rounded-full overflow-hidden shadow-2xl">
-            {/* Background Text */}
-            <motion.div
-                style={{ opacity: textOpacity }}
-                className="absolute inset-0 flex items-center justify-center pointer-events-none z-10 pl-6"
-            >
-                <span className="text-white font-bold text-[16px] tracking-wide inline-flex items-center gap-2">
-                    <span className="opacity-90">Оформить заказ</span>
-                </span>
-                <div className="absolute right-5 text-white/30 animate-pulse">
-                    <ChevronRight size={20} />
-                </div>
-            </motion.div>
-
-            {/* Success State Overlay */}
-            {isLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-green-500 z-30 transition-all">
-                    <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                </div>
-            )}
-
-            {/* Draggable Handle */}
-            <motion.div
-                drag="x"
-                dragConstraints={{ left: 0, right: 0 }}
-                dragElastic={{ left: 0, right: 0.5 }}
-                dragMomentum={false}
-                onDragEnd={handleDragEnd}
-                style={{ x }}
-                className="absolute top-1 left-1 w-14 h-14 bg-white rounded-full flex items-center justify-center cursor-grab active:cursor-grabbing z-20 shadow-md"
-                whileTap={{ scale: 0.95 }}
-            >
-                <ChevronRight className="text-black ml-0.5" strokeWidth={3} size={24} />
-            </motion.div>
-        </div>
-    )
-}
 
 function SwipeableCartItem({ item, updateQuantity, removeFromCart }: { item: any, updateQuantity: any, removeFromCart: any }) {
     const x = useMotionValue(0)
@@ -359,7 +335,7 @@ function SwipeableCartItem({ item, updateQuantity, removeFromCart }: { item: any
                             {(item.product as any).category || 'Букет'}
                         </span>
                         <span className="text-[16px] font-bold text-gray-900 whitespace-nowrap">
-                            {parseInt(item.product.price).toLocaleString()}
+                            {(item.product.price_raw || parseInt(item.product.price.toString().replace(/\D/g, ''))).toLocaleString()} сум
                         </span>
                     </div>
 

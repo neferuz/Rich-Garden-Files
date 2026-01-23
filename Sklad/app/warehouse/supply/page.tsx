@@ -25,9 +25,11 @@ export default function SupplyPage() {
     const [image, setImage] = useState<string | null>(null)
     const [isUploading, setIsUploading] = useState(false)
     const [isSuccess, setIsSuccess] = useState(false)
+    const [description, setDescription] = useState("")
     const [products, setProducts] = useState<any[]>([])
 
     const SUPPLY_CATEGORIES = [
+        { id: 'guests', label: 'Подборка для гостей' },
         { id: 'flowers', label: 'Цветы' },
         { id: 'packaging', label: 'Упаковка' },
         { id: 'accessories', label: 'Аксессуары' },
@@ -165,7 +167,7 @@ export default function SupplyPage() {
                 rating: 5,
                 is_hit: false,
                 is_new: true,
-                description: "",
+                description: description,
                 // @ts-ignore
                 unit,
                 // @ts-ignore
@@ -236,6 +238,17 @@ export default function SupplyPage() {
                         />
                     </div>
 
+                    {/* Description */}
+                    <div>
+                        <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2 pl-1">Описание</label>
+                        <textarea
+                            value={description}
+                            onChange={e => setDescription(e.target.value)}
+                            placeholder="Опишите товар..."
+                            className="w-full min-h-[100px] p-5 rounded-[24px] bg-white border border-gray-100 focus:outline-none focus:border-blue-400/50 focus:ring-4 focus:ring-blue-50/50 font-medium text-gray-900 text-base placeholder:text-gray-300 transition-all shadow-sm resize-none"
+                        />
+                    </div>
+
                     {/* Category */}
                     <div>
                         <div className="flex items-center justify-between mb-2">
@@ -297,8 +310,10 @@ export default function SupplyPage() {
                                                 className={`
                                                 px-5 py-3 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-300 border
                                                 ${category === cat.id
-                                                        ? 'border-blue-600 text-blue-600 bg-blue-50/30 shadow-sm'
-                                                        : 'bg-white border-gray-100 text-gray-400 hover:border-gray-300 shadow-sm'
+                                                        ? cat.id === 'guests' || cat.label === 'Подборка для гостей'
+                                                            ? 'border-black text-black bg-white shadow-sm'
+                                                            : 'border-blue-600 text-blue-600 bg-blue-50/30 shadow-sm'
+                                                        : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'
                                                     }
                                             `}
                                             >

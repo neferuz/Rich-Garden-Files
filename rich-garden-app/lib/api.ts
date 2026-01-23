@@ -22,6 +22,7 @@ export type Product = {
     price_display: string;
     price_raw: number;
     image: string;
+    images?: string; // JSON string
     rating: number;
     is_hit: boolean;
     is_new: boolean;
@@ -74,6 +75,16 @@ export type FamilyMember = {
     image: string;
 };
 
+export type WowEffect = {
+    id: number;
+    name: string;
+    price: number;
+    icon: string;
+    category: string;
+    description?: string;
+    is_active: boolean;
+};
+
 export const api = {
     async getProducts(category?: string, search?: string): Promise<Product[]> {
         const query = new URLSearchParams();
@@ -91,7 +102,7 @@ export const api = {
         return res.json();
     },
 
-    async createOrder(order: OrderCreate) {
+    async createOrder(order: OrderCreate): Promise<Order> {
         const res = await fetch(`${API_URL}/orders`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -103,6 +114,10 @@ export const api = {
             throw new Error(`Failed to create order: ${res.status} ${errorText}`);
         }
         return res.json();
+    },
+
+    async deleteOrder(orderId: number) {
+        await fetch(`${API_URL}/orders/${orderId}`, { method: 'DELETE' });
     },
 
     async authTelegram(user: TelegramUser) {
@@ -133,12 +148,6 @@ export const api = {
         return res.json();
     },
 
-    async getAddresses(telegramId: number): Promise<Address[]> {
-        const res = await fetch(`${API_URL}/user/${telegramId}/addresses`);
-        if (!res.ok) return [];
-        return res.json();
-    },
-
     async createAddress(telegramId: number, address: { title: string, address: string, info?: string }): Promise<Address | null> {
         const res = await fetch(`${API_URL}/user/${telegramId}/addresses`, {
             method: 'POST',
@@ -149,8 +158,14 @@ export const api = {
         return res.json();
     },
 
+    async getAddresses(telegramId: number): Promise<Address[]> {
+        const res = await fetch(`${API_URL}/user/${telegramId}/addresses`, { cache: 'no-store' });
+        if (!res.ok) return [];
+        return res.json();
+    },
+
     async getUserOrders(telegramId: number): Promise<Order[]> {
-        const res = await fetch(`${API_URL}/user/${telegramId}/orders`);
+        const res = await fetch(`${API_URL}/user/${telegramId}/orders`, { cache: 'no-store' });
         if (!res.ok) return [];
         return res.json();
     },
@@ -227,13 +242,65 @@ export const api = {
     },
 
     async logStoryView(storyId: number, userId: number): Promise<void> {
-        await fetch(`${API_URL}/stories/${storyId}/view/${userId}/`, {
+        await fetch(`${API_URL} / stories / ${storyId} /view/${userId}/`, {
             method: 'POST'
         });
     },
 
     async getBanners(): Promise<Banner[]> {
         const res = await fetch(`${API_URL}/banners?active_only=true`, { cache: 'no-store' });
+        if (!res.ok) return [];
+        return res.json();
+    },
+
+    async createClickInvoice(orderId: number, amount: number, returnUrl: string) {
+        const res = await fetch(`${API_URL}/payments/create-click-invoice`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                order_id: orderId,
+                amount: amount,
+                return_url: returnUrl
+            }),
+        });
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error('Failed to create click invoice', errorText);
+            try {
+                const json = JSON.parse(errorText);
+                return { error: json.detail || "Unknown error" };
+            } catch (e) {
+                return { error: errorText };
+            }
+        }
+        return res.json();
+    },
+
+    async createPaymeInvoice(orderId: number, amount: number, returnUrl: string) {
+        const res = await fetch(`${API_URL}/payments/create-payme-invoice`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                order_id: orderId,
+                amount: amount,
+                return_url: returnUrl
+            }),
+        });
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error('Failed to create payme invoice', errorText);
+            try {
+                const json = JSON.parse(errorText);
+                return { error: json.detail || "Unknown error" };
+            } catch (e) {
+                return { error: errorText };
+            }
+        }
+        return res.json();
+    },
+
+    async getWowEffects(): Promise<WowEffect[]> {
+        const res = await fetch(`${API_URL}/wow-effects/`);
         if (!res.ok) return [];
         return res.json();
     }

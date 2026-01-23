@@ -4,10 +4,14 @@ import { Home, LayoutGrid, Heart, User, ShoppingBag, Calendar } from 'lucide-rea
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useFavorites } from '@/context/FavoritesContext'
+import { useCart } from '@/context/CartContext'
 
 export function BottomNav() {
     const { favorites } = useFavorites()
+    const { cartItems } = useCart()
     const pathname = usePathname()
+
+    const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0)
 
     const isActive = (path: string) => {
         if (path === '/') return pathname === '/'
@@ -77,10 +81,20 @@ export function BottomNav() {
                         <div className="w-12 h-12 rounded-full bg-black text-white flex items-center justify-center shadow-lg shadow-black/20 group-hover:scale-105 transition-transform duration-300 relative">
                             <ShoppingBag size={22} className="stroke-[1.5]" />
                             <div className="absolute -bottom-1 w-1 h-1 rounded-full bg-black/20"></div>
+                            {cartCount > 0 && (
+                                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-[9px] font-bold text-white shadow-sm font-sans tracking-tight">
+                                    {cartCount}
+                                </span>
+                            )}
                         </div>
                     ) : (
                         <div className="p-2 text-gray-400 hover:text-black transition-colors relative w-12 h-12 flex items-center justify-center">
                             <ShoppingBag size={26} strokeWidth={1.5} className="group-hover:-translate-y-0.5 transition-transform duration-300" />
+                            {cartCount > 0 && (
+                                <span className="absolute top-0 right-0 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-[9px] font-bold text-white shadow-sm translate-x-1 -translate-y-1 font-sans tracking-tight">
+                                    {cartCount}
+                                </span>
+                            )}
                         </div>
                     )}
                 </Link>

@@ -268,7 +268,7 @@ function ClientDetailsContent({ params }: { params: { id: string } }) {
                     setClient(found)
                     try {
                         const [ordersData, calendarData] = await Promise.all([
-                            api.getOrdersByUserId(found.telegram_id),
+                            api.getOrdersByClientId(found.id),
                             api.getAllCalendarData()
                         ])
                         setOrders(ordersData)

@@ -78,9 +78,11 @@ function OrdersContent() {
     const getStatusBadge = (status: string) => {
         switch (status) {
             case "new": return <span className="px-2.5 py-1 rounded-lg bg-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wide">Новый</span>
+            case "pending_payment": return <span className="px-2.5 py-1 rounded-lg bg-orange-100 text-orange-700 text-[10px] font-bold uppercase tracking-wide">Ожидает оплаты</span>
             case "processing": return <span className="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wide">В сборке</span>
             case "shipping": return <span className="px-2.5 py-1 rounded-lg bg-purple-100 text-purple-700 text-[10px] font-bold uppercase tracking-wide">В пути</span>
             case "done": return <span className="px-2.5 py-1 rounded-lg bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wide">Завершен</span>
+            case "paid": return <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase tracking-wide">Оплачен</span>
             case "cancelled": return <span className="px-2.5 py-1 rounded-lg bg-red-100 text-red-700 text-[10px] font-bold uppercase tracking-wide">Отменен</span>
             default: return null
         }
@@ -103,30 +105,33 @@ function OrdersContent() {
                         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Заказы</h1>
                         <button
                             onClick={() => setIsSearchOpen(true)}
-                            className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm text-gray-500 hover:text-black transition-colors"
+                            className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-900 shadow-sm active:scale-95 transition-all hover:bg-gray-50"
                         >
                             <Search size={20} />
                         </button>
                     </div>
 
                     {/* Search Input (Visible when search is open) */}
-                    <div className={`absolute inset-0 flex items-center gap-3 transition-all duration-300 ${isSearchOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}>
-                        <div className="flex-1 relative">
+                    <div className={`absolute inset-0 flex items-center gap-2 transition-all duration-300 ${isSearchOpen ? 'opacity-100 scale-100 z-10' : 'opacity-0 scale-95 pointer-events-none'}`}>
+                        <div className="relative flex-1">
                             <input
                                 type="text"
                                 placeholder="Поиск по номеру или клиенту..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full h-10 pl-10 pr-4 rounded-full border border-gray-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white text-sm"
+                                className="w-full h-12 pl-12 pr-4 bg-white text-gray-900 placeholder:text-gray-400/80 rounded-[20px] border border-gray-200 shadow-none focus:outline-none focus:ring-4 focus:ring-black/5 focus:border-gray-300 transition-all text-sm font-medium"
                                 autoFocus={isSearchOpen}
                             />
-                            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                                <Search size={20} />
+                            </div>
                         </div>
+
                         <button
                             onClick={() => { setIsSearchOpen(false); setSearchQuery(""); }}
-                            className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors"
+                            className="w-12 h-12 bg-white rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:text-red-500 shadow-md active:scale-95 transition-all shrink-0"
                         >
-                            <X size={20} />
+                            <X size={22} />
                         </button>
                     </div>
                 </div>
@@ -164,6 +169,7 @@ function OrdersContent() {
                         {[
                             { id: 'all', label: 'Все' },
                             { id: 'new', label: 'Новые' },
+                            { id: 'pending_payment', label: 'Ожидают оплаты' },
                             { id: 'processing', label: 'В сборке' },
                             { id: 'shipping', label: 'В пути' },
                             { id: 'done', label: 'Завершены' }

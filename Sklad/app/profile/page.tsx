@@ -182,6 +182,13 @@ export default function ProfilePage() {
                         iconBg="bg-pink-50"
                     />
                     <MenuCard
+                        icon={Zap}
+                        label="Вау эффекты"
+                        href="/wow-effects"
+                        iconColor="text-orange-600"
+                        iconBg="bg-orange-50"
+                    />
+                    <MenuCard
                         icon={Settings}
                         label="Настройки"
                         href="/settings"

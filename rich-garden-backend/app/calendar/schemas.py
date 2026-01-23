@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 from datetime import date, datetime
-from typing import Optional, List
+from typing import Optional, List, Union
 
 class FamilyMemberBase(BaseModel):
     name: str
@@ -44,7 +44,7 @@ class CalendarEventCreate(CalendarEventBase):
     pass
 
 class CalendarEventResponse(CalendarEventBase):
-    id: int
+    id: Union[int, str]
     user_id: int
     user: Optional[UserSimplified] = None
     created_at: datetime

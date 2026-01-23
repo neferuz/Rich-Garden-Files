@@ -44,7 +44,13 @@ export function useProductDetails(item?: any) {
     const [supplier, setSupplier] = useState("");
     const [name, setName] = useState("");
     const [category, setCategory] = useState("mix");
+    const [image, setImage] = useState("");
+    const [images, setImages] = useState<string[]>([]);
     const [history, setHistory] = useState<any[]>([]);
+
+    // Composition state
+    const [composition, setComposition] = useState<any[]>([]);
+    const [availableProducts, setAvailableProducts] = useState<any[]>([]);
 
     // UI State
     const [isEditing, setIsEditing] = useState(false);
@@ -65,10 +71,50 @@ export function useProductDetails(item?: any) {
             setSupplier(item.supplier || "");
             setName(item.name || "");
             setCategory(item.category || "mix");
+            setImage(item.image || "");
+            try {
+                const imgs = typeof item.images === 'string' ? JSON.parse(item.images) : (item.images || []);
+                setImages(Array.isArray(imgs) ? imgs.filter(Boolean) : []);
+            } catch (e) {
+                setImages([]);
+            }
             setHistory(item.history || []);
+
+            // Parse composition
+            try {
+                const comp = typeof item.composition === 'string' ? JSON.parse(item.composition) : (item.composition || []);
+                setComposition(Array.isArray(comp) ? comp : []);
+            } catch (e) {
+                setComposition([]);
+            }
+
             setIsEditing(false);
         }
     }, [item]);
+
+    // Load available products for bouquet composition
+    useEffect(() => {
+        const loadProducts = async () => {
+            // Only load if we are editing or viewing a bouquet
+            if (item && (item.composition || isEditing)) {
+                try {
+                    const products = await api.getProducts();
+                    // Filter out bouquets (items with composition) and self
+                    const basicProducts = products.filter((p: any) => {
+                        const hasComposition = p.composition &&
+                            p.composition !== "[]" &&
+                            p.composition !== "null" &&
+                            (Array.isArray(p.composition) ? p.composition.length > 0 : true);
+                        return !hasComposition && p.id !== item.id;
+                    });
+                    setAvailableProducts(basicProducts);
+                } catch (e) {
+                    console.error("Failed to load products for composition", e);
+                }
+            }
+        };
+        loadProducts();
+    }, [item, isEditing]);
 
     const showNotification = (msg: string, type: 'success' | 'error' = 'success') => {
         setNotification({ msg, type });
@@ -85,7 +131,10 @@ export function useProductDetails(item?: any) {
                 supplier,
                 cost_price: buyPrice,
                 price_raw: sellPrice,
-                price_display: `${sellPrice.toLocaleString().replace(/,/g, " ")} сум`
+                price_display: `${sellPrice.toLocaleString().replace(/,/g, " ")} сум`,
+                image,
+                images: JSON.stringify(images),
+                composition: JSON.stringify(composition)
             });
             if (res && res.history) setHistory(res.history);
             setIsEditing(false);
@@ -94,6 +143,69 @@ export function useProductDetails(item?: any) {
             console.error(err);
             showNotification("Ошибка обновления", "error");
         }
+    };
+
+    const handleImageUpload = async (file: File) => {
+        try {
+            const { url } = await api.uploadImage(file);
+            const fullUrl = url.startsWith('http') ? url : `http://localhost:8000${url}`;
+            setImage(fullUrl);
+
+            // If it's a bouquet or already has multiple images, keep them updated
+            setImages(prev => {
+                const newImgs = [...prev];
+                if (!newImgs.includes(fullUrl)) {
+                    newImgs.push(fullUrl);
+                }
+                return newImgs;
+            });
+
+            showNotification("Фото загружено (не забудьте сохранить)", "success");
+        } catch (err) {
+            console.error("Failed to upload image", err);
+            showNotification("Ошибка загрузки фото", "error");
+        }
+    };
+
+    const removeImage = (index: number) => {
+        setImages(prev => {
+            const newImgs = prev.filter((_, i) => i !== index);
+            if (newImgs.length > 0 && image === prev[index]) {
+                setImage(newImgs[0]);
+            }
+            return newImgs;
+        });
+    };
+
+    // Composition Handlers
+    const addToComposition = (product: any) => {
+        setComposition(prev => {
+            const exists = prev.find(p => p.id === product.id);
+            if (exists) {
+                return prev.map(p => p.id === product.id ? { ...p, qty: p.qty + 1 } : p);
+            }
+            return [...prev, {
+                id: product.id,
+                name: product.name,
+                price: product.price_raw || 0,
+                image: product.image,
+                qty: 1
+            }];
+        });
+    };
+
+    const removeFromComposition = (id: number) => {
+        setComposition(prev => prev.filter(c => c.id !== id));
+    };
+
+    const updateCompositionQuantity = (id: number, delta: number) => {
+        setComposition(prev => prev.map(c => {
+            if (c.id === id) {
+                const newQty = Math.max(1, c.qty + delta);
+                return { ...c, qty: newQty };
+            }
+            return c;
+        }));
     };
 
     const confirmAction = async () => {
@@ -160,12 +272,12 @@ export function useProductDetails(item?: any) {
     const handleDelete = async () => {
         if (!item) return;
         try {
-            await api.deleteProduct(item.id);
+            await api.deleteProduct(Number(item.id));
             setIsDeleteConfirmOpen(false);
             window.location.href = '/warehouse';
         } catch (e) {
             console.error("Failed to delete", e);
-            alert("Не удалось удалить товар.");
+            showNotification("Не удалось удалить товар (ошибка сети или сервера)", "error");
         }
     };
 
@@ -179,7 +291,14 @@ export function useProductDetails(item?: any) {
         supplier, setSupplier,
         name, setName,
         category, setCategory,
+        image, setImage,
+        images, setImages,
         history, setHistory,
+        removeImage,
+
+        composition, setComposition,
+        availableProducts,
+
         isEditing, setIsEditing,
         activeAction, setActiveAction,
         isMenuOpen, setIsMenuOpen,
@@ -194,6 +313,11 @@ export function useProductDetails(item?: any) {
 
         // Actions
         handleSave,
+        handleImageUpload,
+        addToComposition,
+        removeFromComposition,
+        updateCompositionQuantity,
+
         confirmAction,
         handlePublish,
         handleUnpublish,

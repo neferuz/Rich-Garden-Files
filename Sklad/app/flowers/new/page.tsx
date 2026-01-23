@@ -34,6 +34,7 @@ function CreateBouquetContent() {
 
     const [images, setImages] = useState<string[]>([])
     const [sellPrice, setSellPrice] = useState("")
+    const [description, setDescription] = useState("Авторский букет")
 
     // Slider State
     const [sliderX, setSliderX] = useState(0)
@@ -216,7 +217,7 @@ function CreateBouquetContent() {
                 rating: 5.0,
                 is_hit: false,
                 is_new: true,
-                description: "Авторский букет",
+                description: description,
                 cost_price: costPrice,
                 stock_quantity: 0,
                 composition: JSON.stringify(composition.map(c => ({
@@ -277,6 +278,16 @@ function CreateBouquetContent() {
                     </div>
 
                     <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 pl-1">Описание</label>
+                        <textarea
+                            value={description}
+                            onChange={e => setDescription(e.target.value)}
+                            placeholder="Опишите этот прекрасный букет..."
+                            className="w-full min-h-[100px] p-5 rounded-[20px] bg-white border border-gray-100 focus:outline-none focus:border-blue-500 font-medium text-gray-900 text-base placeholder:text-gray-300 transition-colors shadow-sm resize-none"
+                        />
+                    </div>
+
+                    <div>
                         <div className="flex items-center justify-between mb-2">
                             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide pl-1">Категория витрины</label>
                             {isAddingCategory ? (
@@ -329,7 +340,7 @@ function CreateBouquetContent() {
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
                                     exit={{ opacity: 0 }}
-                                    className="flex gap-2 overflow-x-auto hide-scrollbar pb-1 px-0.5"
+                                    className="flex gap-2 overflow-x-auto hide-scrollbar pt-2 pb-4 px-1 -mx-1"
                                 >
                                     {dynamicCategories.map((cat) => (
                                         <button
@@ -337,10 +348,10 @@ function CreateBouquetContent() {
                                             type="button"
                                             onClick={() => setCategory(cat.id)}
                                             className={`
-                                                px-5 py-3 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-300 border
+                                                px-6 py-3 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-300 border
                                                 ${category === cat.id
                                                     ? 'border-blue-600 text-blue-600 bg-blue-50/30 shadow-sm'
-                                                    : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300 shadow-sm'
+                                                    : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'
                                                 }
                                             `}
                                         >
@@ -512,148 +523,171 @@ function CreateBouquetContent() {
                 </div>
             </div>
 
-            {isProductSelectorOpen && (
-                <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center pointer-events-none">
-                    {/* Backdrop */}
-                    <div
-                        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 pointer-events-auto"
-                        onClick={() => setIsProductSelectorOpen(false)}
-                    />
+            <AnimatePresence>
+                {isProductSelectorOpen && (
+                    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center pointer-events-none">
+                        {/* Backdrop */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto"
+                            onClick={() => setIsProductSelectorOpen(false)}
+                        />
 
-                    {/* Sheet */}
-                    <div className="bg-gray-100 w-full md:max-w-2xl rounded-t-[32px] overflow-hidden max-h-[85vh] h-auto flex flex-col shadow-2xl animate-in slide-in-from-bottom-full duration-300 pointer-events-auto relative">
-
-                        {/* Header */}
-                        <div className="bg-white/80 backdrop-blur-md px-6 py-5 border-b border-gray-200/50 flex flex-col gap-4 sticky top-0 z-20">
-                            <div className="flex items-center justify-between">
-                                <span className="text-xl font-bold text-gray-900 tracking-tight">Добавить цветок</span>
-                                <button
-                                    onClick={() => setIsProductSelectorOpen(false)}
-                                    className="w-10 h-10 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center hover:bg-gray-200 transition-colors"
-                                >
-                                    <X size={22} />
-                                </button>
+                        {/* Sheet */}
+                        <motion.div
+                            initial={{ y: "100%" }}
+                            animate={{ y: 0 }}
+                            exit={{ y: "100%" }}
+                            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                            drag="y"
+                            dragConstraints={{ top: 0, bottom: 0 }}
+                            dragElastic={{ top: 0, bottom: 0.2 }}
+                            onDragEnd={(_, info) => {
+                                if (info.offset.y > 100) {
+                                    setIsProductSelectorOpen(false)
+                                }
+                            }}
+                            className="bg-gray-100 w-full md:max-w-2xl rounded-t-[32px] overflow-hidden max-h-[85vh] h-auto flex flex-col shadow-2xl pointer-events-auto relative z-10"
+                        >
+                            {/* Drag Handle */}
+                            <div className="w-full flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing bg-white/80 backdrop-blur-md z-30 absolute top-0 left-0 right-0 rounded-t-[32px]">
+                                <div className="w-12 h-1.5 rounded-full bg-gray-300/50" />
                             </div>
 
-                            {/* Search */}
-                            <div className="relative">
-                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} strokeWidth={2} />
-                                <input
-                                    autoFocus
-                                    placeholder="Поиск по названию..."
-                                    className="w-full h-14 pl-12 pr-5 rounded-2xl bg-gray-50 border border-gray-100 text-[16px] font-medium text-gray-900 placeholder:text-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all shadow-sm"
-                                    value={searchQuery}
-                                    onChange={e => setSearchQuery(e.target.value)}
-                                />
-                            </div>
-                        </div>
-
-                        {/* List */}
-                        <div className="overflow-y-auto p-4 space-y-3 bg-gray-100 min-h-[30vh]">
-                            {filteredProducts.map(p => {
-                                const stock = p.stock_quantity ?? 0
-                                const status = stock === 0 ? 'No' : stock < 5 ? 'Low' : 'OK'
-                                const isFlower = p.category?.toLowerCase() === "flowers" || p.category === "Цветы"
-                                const sellPrice = p.price_raw ?? 0
-                                const buyPrice = p.cost_price ?? 0
-
-                                const inComp = composition.find(c => c.product.id === p.id)
-                                const addedQty = inComp?.qty || 0
-
-                                return (
+                            {/* Header */}
+                            <div className="bg-white/80 backdrop-blur-md px-6 pb-5 pt-8 border-b border-gray-200/50 flex flex-col gap-4 sticky top-0 z-20">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xl font-bold text-gray-900 tracking-tight">Добавить цветок</span>
                                     <button
-                                        key={p.id}
-                                        onClick={() => handleAddIngredient(p)}
-                                        className={`w-full p-3 rounded-[24px] shadow-sm border transition-all hover:scale-[0.99] active:scale-[0.97] flex items-center gap-4 text-left group relative overflow-hidden ${addedQty > 0 ? 'bg-blue-50/30 border-blue-100' : 'bg-white border-gray-100'
-                                            }`}
+                                        onClick={() => setIsProductSelectorOpen(false)}
+                                        className="w-10 h-10 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center hover:bg-gray-200 transition-colors"
                                     >
-                                        {/* Image */}
-                                        <div className="relative w-20 h-20 rounded-2xl bg-gray-50 flex-shrink-0 flex items-center justify-center overflow-hidden border border-gray-100">
-                                            {p.image ? (
-                                                <Image
-                                                    src={p.image.startsWith("http") ? p.image : `http://localhost:8000${p.image.startsWith("/") ? "" : "/"}${p.image}`}
-                                                    alt={p.name}
-                                                    fill
-                                                    className="object-cover p-1 rounded-2xl"
-                                                />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-gray-300"><Package size={24} strokeWidth={1.5} /></div>
-                                            )}
-                                        </div>
+                                        <X size={22} />
+                                    </button>
+                                </div>
 
-                                        {/* Info */}
-                                        <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+                                {/* Search */}
+                                <div className="relative">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} strokeWidth={2} />
+                                    <input
+                                        autoFocus
+                                        placeholder="Поиск по названию..."
+                                        className="w-full h-14 pl-12 pr-5 rounded-2xl bg-gray-50 border border-gray-100 text-[16px] font-medium text-gray-900 placeholder:text-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all shadow-sm"
+                                        value={searchQuery}
+                                        onChange={e => setSearchQuery(e.target.value)}
+                                    />
+                                </div>
+                            </div>
 
-                                            {/* Top: Name & Badges */}
-                                            <div className="flex items-start justify-between">
-                                                <div className="pr-2">
-                                                    <h3 className="text-[15px] font-bold text-gray-900 leading-tight mb-1 line-clamp-2">{p.name}</h3>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wide ${isFlower ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-blue-50 border-blue-100 text-blue-600'
-                                                            }`}>
-                                                            {isFlower ? <Sprout size={10} /> : <Tag size={10} />}
-                                                            {p.category}
+                            {/* List */}
+                            <div className="overflow-y-auto p-4 space-y-3 bg-gray-100 min-h-[30vh]">
+                                {filteredProducts.map(p => {
+                                    const stock = p.stock_quantity ?? 0
+                                    const status = stock === 0 ? 'No' : stock < 5 ? 'Low' : 'OK'
+                                    const isFlower = p.category?.toLowerCase() === "flowers" || p.category === "Цветы"
+                                    const sellPrice = p.price_raw ?? 0
+                                    const buyPrice = p.cost_price ?? 0
+
+                                    const inComp = composition.find(c => c.product.id === p.id)
+                                    const addedQty = inComp?.qty || 0
+
+                                    return (
+                                        <button
+                                            key={p.id}
+                                            onClick={() => handleAddIngredient(p)}
+                                            className={`w-full p-3 rounded-[24px] shadow-sm border transition-all hover:scale-[0.99] active:scale-[0.97] flex items-center gap-4 text-left group relative overflow-hidden ${addedQty > 0 ? 'bg-blue-50/30 border-blue-100' : 'bg-white border-gray-100'
+                                                }`}
+                                        >
+                                            {/* Image */}
+                                            <div className="relative w-20 h-20 rounded-2xl bg-gray-50 flex-shrink-0 flex items-center justify-center overflow-hidden border border-gray-100">
+                                                {p.image ? (
+                                                    <Image
+                                                        src={p.image.startsWith("http") ? p.image : `http://localhost:8000${p.image.startsWith("/") ? "" : "/"}${p.image}`}
+                                                        alt={p.name}
+                                                        fill
+                                                        className="object-cover p-1 rounded-2xl"
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-gray-300"><Package size={24} strokeWidth={1.5} /></div>
+                                                )}
+                                            </div>
+
+                                            {/* Info */}
+                                            <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+
+                                                {/* Top: Name & Badges */}
+                                                <div className="flex items-start justify-between">
+                                                    <div className="pr-2">
+                                                        <h3 className="text-[15px] font-bold text-gray-900 leading-tight mb-1 line-clamp-2">{p.name}</h3>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wide ${isFlower ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-blue-50 border-blue-100 text-blue-600'
+                                                                }`}>
+                                                                {isFlower ? <Sprout size={10} /> : <Tag size={10} />}
+                                                                {p.category}
+                                                            </span>
+                                                            <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide border ${status === 'OK' ? 'bg-green-50 border-green-100 text-green-700' :
+                                                                status === 'Low' ? 'bg-amber-100 border-amber-200 text-amber-700' : 'bg-red-50 border-red-100 text-red-600'
+                                                                }`}>
+                                                                {status === 'OK' ? 'В наличии' : status === 'Low' ? 'Мало' : 'Нет'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Bottom: Prices */}
+                                                <div className="flex items-center gap-4 mt-1">
+                                                    {/* Sell Price */}
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Продажа</span>
+                                                        <span className="text-sm font-bold text-[#2663eb]">
+                                                            {sellPrice.toLocaleString('ru-RU')} <span className="text-[10px] text-gray-400 font-normal">сум</span>
                                                         </span>
-                                                        <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide border ${status === 'OK' ? 'bg-green-50 border-green-100 text-green-700' :
-                                                            status === 'Low' ? 'bg-amber-100 border-amber-200 text-amber-700' : 'bg-red-50 border-red-100 text-red-600'
-                                                            }`}>
-                                                            {status === 'OK' ? 'В наличии' : status === 'Low' ? 'Мало' : 'Нет'}
+                                                    </div>
+
+                                                    {/* Divider */}
+                                                    <div className="w-px h-6 bg-gray-100"></div>
+
+                                                    {/* Buy Price */}
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Закупка</span>
+                                                        <span className="text-sm font-bold text-gray-600">
+                                                            {buyPrice.toLocaleString('ru-RU')} <span className="text-[10px] text-gray-400 font-normal">сум</span>
                                                         </span>
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            {/* Bottom: Prices */}
-                                            <div className="flex items-center gap-4 mt-1">
-                                                {/* Sell Price */}
-                                                <div className="flex flex-col">
-                                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Продажа</span>
-                                                    <span className="text-sm font-bold text-[#2663eb]">
-                                                        {sellPrice.toLocaleString('ru-RU')} <span className="text-[10px] text-gray-400 font-normal">сум</span>
-                                                    </span>
-                                                </div>
-
-                                                {/* Divider */}
-                                                <div className="w-px h-6 bg-gray-100"></div>
-
-                                                {/* Buy Price */}
-                                                <div className="flex flex-col">
-                                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Закупка</span>
-                                                    <span className="text-sm font-bold text-gray-600">
-                                                        {buyPrice.toLocaleString('ru-RU')} <span className="text-[10px] text-gray-400 font-normal">сум</span>
-                                                    </span>
-                                                </div>
+                                            {/* Add Button (Visual) */}
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-sm flex-shrink-0 ${addedQty > 0 ? 'bg-[#2663eb] text-white' : 'bg-gray-50 text-gray-400 group-hover:bg-[#2663eb] group-hover:text-white'
+                                                }`}>
+                                                {addedQty > 0 ? (
+                                                    <Check size={22} strokeWidth={3} className="animate-in zoom-in duration-300" />
+                                                ) : (
+                                                    <Plus size={22} strokeWidth={2.5} />
+                                                )}
                                             </div>
-                                        </div>
+                                        </button>
+                                    )
+                                })}
 
-                                        {/* Add Button (Visual) */}
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-sm flex-shrink-0 ${addedQty > 0 ? 'bg-[#2663eb] text-white' : 'bg-gray-50 text-gray-400 group-hover:bg-[#2663eb] group-hover:text-white'
-                                            }`}>
-                                            {addedQty > 0 ? (
-                                                <Check size={22} strokeWidth={3} className="animate-in zoom-in duration-300" />
-                                            ) : (
-                                                <Plus size={22} strokeWidth={2.5} />
-                                            )}
+                                {filteredProducts.length === 0 && (
+                                    <div className="flex flex-col items-center justify-center py-12 text-center opacity-60">
+                                        <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center mb-4">
+                                            <Search size={32} className="text-gray-400" />
                                         </div>
-                                    </button>
-                                )
-                            })}
-
-                            {filteredProducts.length === 0 && (
-                                <div className="flex flex-col items-center justify-center py-12 text-center opacity-60">
-                                    <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center mb-4">
-                                        <Search size={32} className="text-gray-400" />
+                                        <span className="text-gray-500 font-medium">Ничего не найдено</span>
                                     </div>
-                                    <span className="text-gray-500 font-medium">Ничего не найдено</span>
-                                </div>
-                            )}
+                                )}
 
-                            {/* Bottom spacer for safe area */}
-                            <div className="h-12" />
-                        </div>
+                                {/* Bottom spacer for safe area */}
+                                <div className="h-12" />
+                            </div>
+                        </motion.div>
                     </div>
-                </div>
-            )}
+                )}
+            </AnimatePresence>
 
             {/* Full Screen Image Viewer */}
             {selectedImageIndex !== null && (

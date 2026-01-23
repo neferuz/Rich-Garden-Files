@@ -7,11 +7,12 @@ class TelegramUser(Base):
     __tablename__ = "telegram_users"
     
     id = Column(Integer, primary_key=True, index=True)
-    telegram_id = Column(Integer, unique=True, index=True)
+    telegram_id = Column(Integer, unique=True, index=True, nullable=True)
     first_name = Column(String)
     username = Column(String, nullable=True)
     photo_url = Column(String, nullable=True)
     phone_number = Column(String, nullable=True)
+    birth_date = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.now)
 
     addresses = relationship("Address", back_populates="user")

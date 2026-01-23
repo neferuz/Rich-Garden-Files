@@ -21,6 +21,7 @@ def get_orders(db: Session = Depends(get_db)):
 def get_order(order_id: int, db: Session = Depends(get_db)):
     return service.get_order(db, order_id)
 
-@router.put("/{order_id}/status", response_model=schemas.Order)
-async def update_order_status(order_id: int, status_update: schemas.OrderUpdateStatus, db: Session = Depends(get_db)):
-    return await service.update_order_status(db, order_id, status_update)
+@router.delete("/{order_id}")
+def delete_order(order_id: int, db: Session = Depends(get_db)):
+    service.delete_order(db, order_id)
+    return {"message": "Order deleted"}

@@ -7,6 +7,7 @@ class ProductBase(BaseModel):
     price: Optional[str] = None
     price_raw: Optional[int] = 0
     image: Optional[str] = None
+    images: Optional[str] = "[]"
     rating: Optional[float] = 5.0
     is_hit: bool = False
     is_new: bool = False
@@ -28,6 +29,7 @@ class ProductUpdate(BaseModel):
     price: Optional[str] = None
     price_raw: Optional[int] = None
     image: Optional[str] = None
+    images: Optional[str] = None
     rating: Optional[float] = None
     is_hit: Optional[bool] = None
     is_new: Optional[bool] = None

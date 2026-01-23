@@ -23,7 +23,7 @@ def create_event(telegram_id: int, event: schemas.CalendarEventCreate, db: Sessi
     return service.create_event(db, telegram_id, event)
 
 @router.delete("/{telegram_id}/events/{event_id}")
-def delete_event(telegram_id: int, event_id: int, db: Session = Depends(get_db)):
+def delete_event(telegram_id: int, event_id: str, db: Session = Depends(get_db)):
     return service.delete_event(db, telegram_id, event_id)
 
 @router.get("/all/global", response_model=schemas.CalendarDataResponse)

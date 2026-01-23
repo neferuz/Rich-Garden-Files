@@ -9,6 +9,7 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
+    DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 
 type Client = {
@@ -28,6 +29,7 @@ export default function ClientsPage() {
     const [searchQuery, setSearchQuery] = useState("")
     const [clients, setClients] = useState<Client[]>([])
     const [isLoading, setIsLoading] = useState(true)
+    const [filterType, setFilterType] = useState<'all' | 'online' | 'offline'>('all')
     const [sortOrder, setSortOrder] = useState<'new' | 'old'>('new')
 
     useEffect(() => {
@@ -43,11 +45,18 @@ export default function ClientsPage() {
             })
     }, [])
 
-    const filteredClients = clients.filter(c =>
-        (c.first_name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (c.username || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (c.phone_number || "").includes(searchQuery)
-    )
+    const filteredClients = clients.filter(c => {
+        const matchesSearch = (c.first_name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (c.username || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (c.phone_number || "").includes(searchQuery)
+
+        if (!matchesSearch) return false
+
+        if (filterType === 'online') return !!c.telegram_id
+        if (filterType === 'offline') return !c.telegram_id
+
+        return true
+    })
 
     const sortedClients = [...filteredClients].sort((a, b) => {
         const dateA = new Date(a.created_at || 0).getTime()
@@ -80,11 +89,24 @@ export default function ClientsPage() {
                     </div>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <button className={`w-12 h-12 flex items-center justify-center rounded-[20px] border transition-colors shadow-sm ${sortOrder === 'old' ? 'bg-black text-white border-black' : 'bg-white border-gray-100 text-gray-500 hover:text-black hover:bg-gray-50'}`}>
-                                <ArrowDownUp size={20} />
+                            <button className={`w-12 h-12 flex items-center justify-center rounded-[20px] border transition-colors shadow-sm ${filterType !== 'all' ? 'bg-[#2663eb] text-white border-[#2663eb]' : 'bg-white border-gray-100 text-gray-500 hover:text-black hover:bg-gray-50'}`}>
+                                <Filter size={20} />
                             </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48 rounded-xl p-2 bg-white shadow-xl shadow-black/5 border-gray-100">
+                            <DropdownMenuItem onClick={() => setFilterType('all')} className="rounded-lg cursor-pointer flex items-center justify-between">
+                                <span>Все</span>
+                                {filterType === 'all' && <Check size={16} />}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setFilterType('online')} className="rounded-lg cursor-pointer flex items-center justify-between">
+                                <span>Online</span>
+                                {filterType === 'online' && <Check size={16} />}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setFilterType('offline')} className="rounded-lg cursor-pointer flex items-center justify-between">
+                                <span>Offline</span>
+                                {filterType === 'offline' && <Check size={16} />}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => setSortOrder('new')} className="rounded-lg cursor-pointer flex items-center justify-between">
                                 <span>Сначала новые</span>
                                 {sortOrder === 'new' && <Check size={16} />}
@@ -95,6 +117,8 @@ export default function ClientsPage() {
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
+
+
                 </div>
 
                 {/* Clients List */}
@@ -120,9 +144,20 @@ export default function ClientsPage() {
                                         {/* Info */}
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center justify-between mb-1">
-                                                <h3 className="font-bold text-gray-900 text-[16px] truncate pr-2">
-                                                    {client.first_name} {client.username ? `(@${client.username})` : ''}
-                                                </h3>
+                                                <div className="flex items-center gap-2">
+                                                    <h3 className="font-bold text-gray-900 text-[16px] truncate">
+                                                        {client.first_name} {client.username ? `(@${client.username})` : ''}
+                                                    </h3>
+                                                    {client.telegram_id ? (
+                                                        <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wide">
+                                                            Online
+                                                        </span>
+                                                    ) : (
+                                                        <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 text-[10px] font-bold uppercase tracking-wide">
+                                                            Offline
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
 
                                             <div className="flex items-center gap-3 text-sm text-gray-500">
@@ -138,7 +173,7 @@ export default function ClientsPage() {
                                         </div>
 
                                         {/* Arrow */}
-                                        <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-black group-hover:text-white transition-colors">
+                                        <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-black group-hover:text-white transition-colors shrink-0">
                                             <ChevronRight size={18} />
                                         </div>
                                     </div>

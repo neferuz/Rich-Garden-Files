@@ -6,44 +6,50 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import { api } from '@/lib/api'
+import { useFavorites } from '@/context/FavoritesContext'
 
 export default function ProfilePage() {
     const [telegramUser, setTelegramUser] = useState<any>(null)
     const [activeOrders, setActiveOrders] = useState(0)
     const [totalOrders, setTotalOrders] = useState(0)
+    const { favorites } = useFavorites()
 
     useEffect(() => {
-        if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
+        if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.initDataUnsafe?.user) {
             const tg = (window as any).Telegram.WebApp;
             const user = tg.initDataUnsafe?.user;
 
-            // Mock user for dev if needed, remove later
-            const devUser = { id: 12345, first_name: "TestUser", username: "test", photo_url: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=150&auto=format&fit=crop", phone_number: "+998901234567" };
-
-            // Logic: Prefers real TG user, falls back to devUser for testing
-            const targetUser = user || devUser;
-
-            if (targetUser) {
+            if (user) {
                 setTelegramUser({
-                    first_name: targetUser.first_name,
-                    username: targetUser.username,
-                    photo_url: targetUser.photo_url,
-                    phone_number: (targetUser as any).phone_number
+                    first_name: user.first_name,
+                    username: user.username,
+                    photo_url: user.photo_url,
+                    phone_number: (user as any).phone_number
                 });
-
-                // Fetch real orders
-                api.getUserOrders(targetUser.id).then(orders => {
-                    setTotalOrders(orders.length)
-                    const activeCount = orders.filter(o => ['new', 'processing', 'shipping'].includes(o.status)).length
-                    setActiveOrders(activeCount)
-                }).catch(err => console.error("Failed to load orders", err))
+                fetchOrders(user.id)
             }
+        } else if (process.env.NODE_ENV === 'development') {
+            // Mock user
+            setTelegramUser({
+                first_name: "Local Test",
+                username: "dev_user",
+                phone_number: "+998 90 123 45 67"
+            })
+            fetchOrders(12345678)
         }
     }, [])
 
+    const fetchOrders = (userId: number) => {
+        api.getUserOrders(userId).then(orders => {
+            setTotalOrders(orders.length)
+            const activeCount = orders.filter(o => ['new', 'processing', 'shipping'].includes(o.status)).length
+            setActiveOrders(activeCount)
+        }).catch(err => console.error("Failed to load orders", err))
+    }
+
     const menuItems = [
         { icon: Package, label: 'Мои заказы', href: '/orders', badge: activeOrders > 0 ? `${activeOrders} активных` : undefined },
-        { icon: Heart, label: 'Избранное', href: '/favorites' },
+        { icon: Heart, label: 'Избранное', href: '/favorites', badge: favorites.length > 0 ? `${favorites.length}` : undefined },
         { icon: Calendar, label: 'Календарь событий', href: '/calendar' },
         { icon: CreditCard, label: 'Способы оплаты', href: '/payment' },
     ]
@@ -99,8 +105,8 @@ export default function ProfilePage() {
                                 <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">заказов</span>
                             </div>
                             <div className="flex flex-col items-center border-l border-gray-50">
-                                <span className="text-[18px] font-black text-black">8</span>
-                                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">избранно</span>
+                                <span className="text-[18px] font-black text-black">{favorites.length}</span>
+                                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">избранное</span>
                             </div>
                         </div>
                     </div>

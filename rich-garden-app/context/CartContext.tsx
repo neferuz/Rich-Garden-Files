@@ -18,7 +18,7 @@ export interface CartItem {
 
 interface CartContextType {
     cartItems: CartItem[]
-    addToCart: (product: Product) => void
+    addToCart: (product: Product, quantity?: number) => void
     removeFromCart: (productId: number | string) => void
     updateQuantity: (productId: number | string, quantity: number) => void
     clearCart: () => void
@@ -52,25 +52,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
     }, [cartItems, isLoaded])
 
-    const addToCart = (product: Product) => {
+    const addToCart = (product: Product, quantity: number = 1) => {
         setCartItems(prev => {
             const existing = prev.find(item => item.product.id === product.id)
             if (existing) {
                 toast.success("Количество обновлено", { description: product.name })
                 return prev.map(item =>
                     item.product.id === product.id
-                        ? { ...item, quantity: item.quantity + 1 }
+                        ? { ...item, quantity: item.quantity + quantity }
                         : item
                 )
             } else {
                 toast.success("Добавлено в корзину", { description: product.name })
-                return [...prev, { product, quantity: 1 }]
+                return [...prev, { product, quantity }]
             }
         })
     }
 
     const removeFromCart = (productId: number | string) => {
-        setCartItems(prev => prev.filter(item => item.product.id !== productId))
+        setCartItems(prev => prev.filter(item => String(item.product.id) !== String(productId)))
     }
 
     const updateQuantity = (productId: number | string, quantity: number) => {
@@ -79,7 +79,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             return
         }
         setCartItems(prev => prev.map(item =>
-            item.product.id === productId ? { ...item, quantity } : item
+            String(item.product.id) === String(productId) ? { ...item, quantity } : item
         ))
     }
 

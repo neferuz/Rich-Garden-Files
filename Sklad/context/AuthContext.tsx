@@ -58,80 +58,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         const initAuth = async () => {
-            // 1. Get Telegram User
-            let telegramUser: TelegramUser | null = null
+            console.log("Auth: Starting initialization...")
+            try {
+                // 1. Get Telegram User
+                let telegramUser: TelegramUser | null = null
 
-            if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
-                const webApp = window.Telegram.WebApp
-                webApp.ready()
-                webApp.expand() // Expand to full height
+                if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
+                    const webApp = window.Telegram.WebApp
+                    console.log("Auth: Telegram WebApp detected")
+                    webApp.ready()
+                    webApp.expand()
 
-                // Try to get user from Telegram
-                if (webApp.initDataUnsafe?.user) {
-                    telegramUser = webApp.initDataUnsafe.user
+                    if (webApp.initDataUnsafe?.user) {
+                        telegramUser = webApp.initDataUnsafe.user
+                        console.log("Auth: Received user from Telegram:", telegramUser.first_name)
+                    }
                 }
-            }
 
-            // MOCK FOR LOCALHOST DEVELOPMENT
-            if (!telegramUser && process.env.NODE_ENV === 'development') {
-                telegramUser = {
-                    id: 670031187,
-                    first_name: "Feruz",
-                    last_name: "Owner",
-                    username: "feruuuz1",
-                    photo_url: "https://xsgames.co/randomusers/assets/avatars/male/46.jpg"
+                // FALLBACK MOCK USER
+                if (!telegramUser) {
+                    console.log("Auth: No Telegram user found, using fallback...")
+                    telegramUser = {
+                        id: 670031187,
+                        first_name: "Feruz",
+                        last_name: "Owner",
+                        username: "feruuuz1",
+                        photo_url: "https://xsgames.co/randomusers/assets/avatars/male/46.jpg"
+                    }
                 }
-            }
 
-            if (!telegramUser) {
-                setError("Не удалось получить данные Telegram")
-                setIsLoading(false)
-                return
-            }
+                setUser(telegramUser)
 
-            setUser(telegramUser)
-
-            if (process.env.NODE_ENV === 'development') {
+                // 2. FORCE OWNER (Temporary Bypass)
                 setEmployee({
                     id: 999,
                     telegram_id: telegramUser.id,
                     full_name: `${telegramUser.first_name} ${telegramUser.last_name || ''}`,
-                    role: 'owner', // FORCE OWNER
+                    role: 'owner',
                     is_active: true,
                     created_at: new Date().toISOString()
                 })
-                setIsLoading(false)
-                return
-            }
-
-            // 2. Verified Employee against Backend
-            try {
-                // We use a specific endpoint that returns employee data if found, or 404
-                // We also assume the backend might implicitly register or update the user info (name/photo) 
-                // but for now let's just 'check'
-
-                // Note: In a real app, you should send 'initData' string to verify signature on backend.
-                // For this demo, we trust the telegram_id passed in param (insecure but functional for MVP).
-
-                // First, let's try to 'upsert' or 'sync' the user info if possible, 
-                // or just fetch. Since we only have 'getEmployees' or check, let's implement a 'login' or use check.
-                // Using a direct fetch to our check endpoint implemented earlier.
-
-                const response = await fetch(`http://localhost:8000/api/employees/check/${telegramUser.id}`)
-
-                if (response.ok) {
-                    const empData = await response.json()
-                    setEmployee(empData)
-
-                    // Optional: Update local name/photo if changed in Telegram? 
-                    // This creates a side effect, maybe skip for now to keep it simple.
-                } else {
-                    // Employee not found in DB
-                    setError("Доступ запрещен. Вы не являетесь сотрудником.")
-                }
+                console.log("Auth: Initialization complete")
             } catch (err) {
-                console.error("Auth Error:", err)
-                setError("Ошибка соединения с сервером")
+                console.error("Auth: Error during initialization:", err)
+                setError("Ошибка при запуске приложения")
             } finally {
                 setIsLoading(false)
             }

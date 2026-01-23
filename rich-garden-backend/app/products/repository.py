@@ -33,6 +33,10 @@ def update(db: Session, product_id: int, product_update: schemas.ProductUpdate):
     db.refresh(db_product)
     return db_product
 
+def delete_product_history(db: Session, product_id: int):
+    db.query(models.ProductHistory).filter(models.ProductHistory.product_id == product_id).delete()
+    db.commit()
+
 def delete(db: Session, product_id: int):
     product = get_by_id(db, product_id)
     if product:

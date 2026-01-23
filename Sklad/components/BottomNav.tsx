@@ -1,6 +1,6 @@
 "use client"
 
-import { Home, Package, Plus, ClipboardList, User, Banknote } from "lucide-react"
+import { Home, Package, Plus, ClipboardList, User, Banknote, Store } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
@@ -21,8 +21,8 @@ export default function BottomNav() {
         }
     }, [isMenuOpen])
 
-    // Hide BottomNav on Shop page, Expense creation, and Supply page
-    if (pathname?.startsWith("/shop") || pathname === "/finance/expense" || pathname === "/warehouse/supply" || pathname === "/flowers/new") {
+    // Hide BottomNav on Shop page, Expense creation, Supply page, and Broadcast page
+    if (pathname?.startsWith("/shop") || pathname === "/finance/expense" || pathname === "/warehouse/supply" || pathname === "/flowers/new" || pathname === "/clients/broadcast") {
         return null
     }
 
@@ -48,16 +48,16 @@ export default function BottomNav() {
 
     return (
         <>
-            {/* Backdrop for closing - placed outside to not dim the nav itself */}
+            {/* Backdrop for closing - placed BEHIND the nav z-index (50) */}
             {isMenuOpen && (
                 <div
-                    className="fixed inset-0 z-[90] bg-black/10 backdrop-blur-[2px] transition-all duration-300"
+                    className="fixed inset-0 z-[40] bg-white/60 backdrop-blur-xl transition-all duration-300"
                     onClick={() => setIsMenuOpen(false)}
                 />
             )}
 
-            <div className="fixed bottom-6 inset-x-0 mx-auto w-full max-w-[350px] z-[50]">
-                <div className="bg-white/90 backdrop-blur-xl border border-white/40 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] rounded-[32px] px-6 py-3.5 flex items-center justify-between ring-1 ring-black/5">
+            <div className="fixed inset-x-0 mx-auto w-full max-w-[350px] z-[50] transition-all duration-300" style={{ bottom: 'calc(1.5rem + var(--tg-content-safe-area-bottom) + var(--tg-safe-area-bottom))' }}>
+                <div className="bg-white/90 backdrop-blur-2xl border border-white/40 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] rounded-[32px] px-6 py-3.5 flex items-center justify-between ring-1 ring-black/5">
 
                     {/* Home */}
                     <Link href="/" className={getLinkClass(pathname === "/")}>
@@ -71,31 +71,43 @@ export default function BottomNav() {
 
                     {/* Plus - Center Custom Button with Speed Dial */}
                     <div className="relative">
-                        {/* Speed Dial Menu - Animate Presence equivalent logic */}
+                        {/* Speed Dial Menu - Grid Layout 2x2 */}
                         <div className={`
-                            absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-[320px] h-[220px] pointer-events-none transition-all duration-300 z-0
-                            ${isMenuOpen ? "opacity-100 scale-100 pointer-events-auto" : "opacity-0 scale-90 translate-y-4"}
+                            absolute bottom-full left-1/2 -translate-x-1/2 mb-8 w-[320px] h-[220px] pointer-events-none transition-all duration-300 z-0
+                            ${isMenuOpen ? "opacity-100 scale-100 pointer-events-auto" : "opacity-0 scale-95 translate-y-4"}
                         `}>
-                            {/* Top Center - Bouquet (Create) */}
+                            {/* Top Left - Bouquet */}
                             <Link
                                 href="/flowers/new?type=bouquet"
                                 onClick={() => setIsMenuOpen(false)}
-                                className="absolute top-0 left-1/2 -translate-x-1/2 w-[150px] bg-white/95 backdrop-blur-xl border border-white/50 shadow-xl shadow-blue-500/20 rounded-[24px] py-3 flex flex-col items-center gap-1 cursor-pointer hover:bg-white transition-all hover:scale-105 active:scale-95 outline-none ring-1 ring-black/5"
+                                className="absolute top-0 left-0 w-[155px] bg-white/95 backdrop-blur-xl border border-white/50 shadow-xl shadow-blue-500/20 rounded-[28px] py-4 flex flex-col items-center gap-2 cursor-pointer hover:bg-white transition-all hover:scale-105 active:scale-95 outline-none ring-1 ring-black/5"
                             >
                                 <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center transition-colors">
-                                    <Plus size={20} strokeWidth={2.5} />
+                                    <Plus size={22} strokeWidth={2.5} />
                                 </div>
                                 <span className="text-xs font-bold text-gray-600 tracking-tight uppercase">Букет</span>
+                            </Link>
+
+                            {/* Top Right - Offline (New) */}
+                            <Link
+                                href="/pos"
+                                onClick={() => setIsMenuOpen(false)}
+                                className="absolute top-0 right-0 w-[155px] bg-white/95 backdrop-blur-xl border border-white/50 shadow-xl shadow-purple-500/20 rounded-[28px] py-4 flex flex-col items-center gap-2 cursor-pointer hover:bg-white transition-all hover:scale-105 active:scale-95 outline-none ring-1 ring-black/5"
+                            >
+                                <div className="w-10 h-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center transition-colors">
+                                    <Store size={22} strokeWidth={2.5} />
+                                </div>
+                                <span className="text-xs font-bold text-gray-600 tracking-tight uppercase">Офлайн</span>
                             </Link>
 
                             {/* Bottom Left - Expense */}
                             <Link
                                 href="/finance/expense"
                                 onClick={() => setIsMenuOpen(false)}
-                                className="absolute bottom-6 left-0 w-[150px] bg-white/95 backdrop-blur-xl border border-white/50 shadow-xl shadow-red-500/20 rounded-[24px] py-3 flex flex-col items-center gap-1 cursor-pointer hover:bg-white transition-all hover:scale-105 active:scale-95 outline-none ring-1 ring-black/5"
+                                className="absolute bottom-0 left-0 w-[155px] bg-white/95 backdrop-blur-xl border border-white/50 shadow-xl shadow-red-500/20 rounded-[28px] py-4 flex flex-col items-center gap-2 cursor-pointer hover:bg-white transition-all hover:scale-105 active:scale-95 outline-none ring-1 ring-black/5"
                             >
                                 <div className="w-10 h-10 rounded-full bg-red-50 text-red-500 flex items-center justify-center transition-colors">
-                                    <Banknote size={20} strokeWidth={2.5} />
+                                    <Banknote size={22} strokeWidth={2.5} />
                                 </div>
                                 <span className="text-xs font-bold text-gray-600 tracking-tight uppercase">Расход</span>
                             </Link>
@@ -104,10 +116,10 @@ export default function BottomNav() {
                             <Link
                                 href="/warehouse/supply"
                                 onClick={() => setIsMenuOpen(false)}
-                                className="absolute bottom-6 right-0 w-[150px] bg-white/95 backdrop-blur-xl border border-white/50 shadow-xl shadow-emerald-500/20 rounded-[24px] py-3 flex flex-col items-center gap-1 cursor-pointer hover:bg-white transition-all hover:scale-105 active:scale-95 outline-none ring-1 ring-black/5"
+                                className="absolute bottom-0 right-0 w-[155px] bg-white/95 backdrop-blur-xl border border-white/50 shadow-xl shadow-emerald-500/20 rounded-[28px] py-4 flex flex-col items-center gap-2 cursor-pointer hover:bg-white transition-all hover:scale-105 active:scale-95 outline-none ring-1 ring-black/5"
                             >
                                 <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center transition-colors">
-                                    <Package size={20} strokeWidth={2.5} />
+                                    <Package size={22} strokeWidth={2.5} />
                                 </div>
                                 <span className="text-xs font-bold text-gray-600 tracking-tight uppercase">Приход</span>
                             </Link>

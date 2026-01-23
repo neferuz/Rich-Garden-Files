@@ -25,9 +25,21 @@ def auth_telegram(user: schemas.TelegramUserCreate, db: Session = Depends(get_db
 def get_clients(db: Session = Depends(get_db)):
     return service.get_clients(db)
 
+@clients_router.post("/offline", response_model=schemas.TelegramUser)
+def create_offline_client(client: schemas.TelegramUserCreate, db: Session = Depends(get_db)):
+    return service.create_offline_client(db, client)
+
 @clients_router.delete("/{client_id}")
 def delete_client(client_id: int, db: Session = Depends(get_db)):
     return service.delete_user(db, client_id)
+
+@clients_router.get("/{client_id}/orders", response_model=List[order_schemas.Order])
+def get_client_orders(client_id: int, db: Session = Depends(get_db)):
+    return service.get_client_orders(db, client_id)
+
+@clients_router.post("/broadcast")
+async def broadcast_message(request: schemas.BroadcastRequest, db: Session = Depends(get_db)):
+    return await service.send_broadcast(db, request.text, request.filter_type)
 
 # User specific routes
 @router.post("/{telegram_id}/addresses", response_model=schemas.Address)

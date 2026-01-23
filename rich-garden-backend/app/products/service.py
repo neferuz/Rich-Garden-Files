@@ -43,11 +43,58 @@ def update_product(db: Session, product_id: int, product_update: schemas.Product
             
     return updated_product
 
+import json
+
 def delete_product(db: Session, product_id: int):
-    success = repository.delete(db, product_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Product not found")
-    return {"message": "Product deleted successfully"}
+    try:
+        product = repository.get_by_id(db, product_id)
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found")
+
+        # RESTORE INGREDIENTS LOGIC
+        # If it's a bouquet (has composition) and has stock, return ingredients to warehouse
+        if product.stock_quantity > 0 and product.composition and product.composition != "[]":
+            try:
+                comp_list = json.loads(product.composition)
+                if isinstance(comp_list, list):
+                    for item in comp_list:
+                        ing_id = item.get('id')
+                        ing_qty = item.get('qty', 0)
+                        if ing_id and ing_qty > 0:
+                            ingredient = repository.get_by_id(db, ing_id)
+                            if ingredient:
+                                restore_amount = ing_qty * product.stock_quantity
+                                repository.update_stock(db, ingredient, restore_amount)
+                                # Add history record for ingredient
+                                repository.add_history(
+                                    db, 
+                                    product_id=ingredient.id, 
+                                    action="income", 
+                                    quantity=restore_amount, 
+                                    date=datetime.datetime.now().isoformat()
+                                )
+            except Exception as e:
+                print(f"Error restoring ingredients: {e}")
+
+        # Manually delete history to avoid foreign key constraints
+        # Using direct model access to ensure it works even if repository isn't reloaded
+        try:
+            db.query(models.ProductHistory).filter(models.ProductHistory.product_id == product_id).delete()
+            db.commit()
+        except Exception as e:
+            print(f"Error deleting history: {e}")
+
+        success = repository.delete(db, product_id)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to delete product")
+        return {"message": "Product deleted successfully"}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"CRITICAL ERROR deleting product {product_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
 
 def supply_product(db: Session, product_id: int, supply: schemas.ProductSupply):
     product = repository.get_by_id(db, product_id)

@@ -6,46 +6,95 @@ from typing import List
 from app.services import telegram
 import json
 
-async def create_order(db: Session, order: schemas.OrderCreate):
-    # 1. Create Order in DB
-    db_order = repository.create(db, order)
-    
-    # 2. Prepare data for notification
+async def notify_new_order(db: Session, db_order: schemas.Order, telegram_id: int = None):
+    # Prepare data for notification
+    items_detail = ""
     try:
         items = json.loads(db_order.items)
-        items_detail = ""
-        for item in items:
-            name = item.get('name') or "Товар"
-            qty = item.get('quantity') or 1
-            items_detail += f"- {name} x{qty}\n"
-    except:
+        if isinstance(items, list):
+            for item in items:
+                name = item.get('name')
+                if not name and item.get('id'):
+                    from app.products import repository as prod_repo
+                    p = prod_repo.get_by_id(db, int(item.get('id')))
+                    if p:
+                        name = p.name
+                
+                name = name or "Товар"
+                qty = item.get('quantity') or 1
+                items_detail += f"- {name} x{qty}\n"
+        else:
+            items_detail = "Детали заказа: " + str(items)
+    except Exception as e:
+        print(f"Error parsing items for notification: {e}")
         items_detail = "Детали заказа не распознаны"
 
-    # 3. Send Notification (Async)
-    # We call await here because this function will be called from an async router
-    # Prepare extras display
+    # Send Notification to Admin Group
     try:
-            extras_data = json.loads(db_order.extras) if db_order.extras else {}
-    except:
-            extras_data = {}
+        extras_data = {}
+        if db_order.extras:
+            try:
+                extras_data = json.loads(db_order.extras) if isinstance(db_order.extras, str) else db_order.extras
+            except:
+                pass
 
-    order_dict = {
-        "id": db_order.id,
-        "status": db_order.status,
-        "customer_name": db_order.customer_name,
-        "customer_phone": db_order.customer_phone,
-        "address": db_order.address,
-        "total_price": db_order.total_price,
-        "payment_method": db_order.payment_method,
-        "comment": db_order.comment,
-        "extras": extras_data
-    }
+        order_dict = {
+            "id": db_order.id,
+            "status": db_order.status,
+            "customer_name": db_order.customer_name or "Гость",
+            "customer_phone": db_order.customer_phone or "Не указан",
+            "address": db_order.address,
+            "total_price": db_order.total_price or 0,
+            "payment_method": db_order.payment_method,
+            "comment": db_order.comment,
+            "extras": extras_data
+        }
+        
+        # 1. Admin Notification
+        msg_id = await telegram.send_order_notification(order_dict, items_detail)
+        if msg_id:
+            repository.update_telegram_message_id(db, db_order.id, msg_id)
+            
+        # 2. Customer Receipt
+        # Priority: Linked User -> Manual Telegram ID
+        sent_to_user = False
+        
+        if db_order.user_id:
+            try:
+                from app.users import repository as user_repo
+                user = user_repo.get(db, db_order.user_id)
+                if user and user.telegram_id:
+                     await telegram.send_customer_receipt(user.telegram_id, order_dict, items_detail)
+                     sent_to_user = True
+            except Exception as e:
+                print(f"Failed to send receipt to linked user: {e}")
+        
+        if not sent_to_user and telegram_id:
+            # Fallback to provided telegram_id (e.g. Guest with known ID or manual)
+             await telegram.send_customer_receipt(telegram_id, order_dict, items_detail)
+
+        if msg_id:
+            return msg_id
+            
+    except Exception as e:
+        print(f"Error during order notification: {e}")
+    return None
+
+async def create_order(db: Session, order: schemas.OrderCreate):
+    # Capture telegram_id before it might be consumed/modified (though here it's input schema)
+    telegram_id = order.telegram_id
     
-    msg_id = await telegram.send_order_notification(order_dict, items_detail)
+    # 1. Create Order in DB
+    try:
+        db_order = repository.create(db, order)
+    except Exception as e:
+        print(f"Database error during order creation: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     
-    # 4. Save Message ID if sent
-    if msg_id:
-        repository.update_telegram_message_id(db, db_order.id, msg_id)
+    # 2. Only notify immediately if it's CASH
+    # For Click/Payme, notification will be sent after successful payment
+    if db_order.payment_method == 'cash':
+        await notify_new_order(db, db_order, telegram_id)
         
     return db_order
 
@@ -67,7 +116,7 @@ async def update_order_status(db: Session, order_id: int, status_update: schemas
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     
-    # 2. Update Telegram Message
+    # 2. Update/Send Telegram Notification
     if order.telegram_message_id:
         try:
             items = json.loads(order.items)
@@ -79,12 +128,12 @@ async def update_order_status(db: Session, order_id: int, status_update: schemas
         except:
              items_detail = "Детали заказа не распознаны"
 
-        # Prepare extras display
-        try:
-             extras_data = json.loads(order.extras) if order.extras else {}
-             logger_extras = extras_data # Just temporary var name
-        except:
-             extras_data = {}
+        extras_data = {}
+        if order.extras:
+            try:
+                 extras_data = json.loads(order.extras) if isinstance(order.extras, str) else order.extras
+            except:
+                 pass
 
         order_dict = {
             "id": order.id,
@@ -99,5 +148,16 @@ async def update_order_status(db: Session, order_id: int, status_update: schemas
         }
         
         await telegram.update_order_status_message(order.telegram_message_id, order_dict, items_detail)
+    else:
+        # If notification wasn't sent yet (e.g. for deferred online payments)
+        # and it's now 'paid' or admin manually updated status, send it now.
+        if order.status != 'pending_payment':
+            await notify_new_order(db, order)
+        
         
     return order
+
+def delete_order(db: Session, order_id: int):
+    # Optional: Delete telegram message if exists
+    repository.delete(db, order_id)
+

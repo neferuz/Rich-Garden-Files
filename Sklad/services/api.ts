@@ -68,6 +68,19 @@ export type Expense = {
     date: string;
 };
 
+export type WowEffect = {
+    id: number;
+    name: string;
+    price: number;
+    icon: string;
+    category: string;
+    description?: string;
+    is_active: boolean;
+};
+
+export type WowEffectCreate = Omit<WowEffect, 'id'>;
+export type WowEffectUpdate = Partial<WowEffectCreate>;
+
 export const api = {
     async getProducts(category?: string, search?: string): Promise<Product[]> {
         const query = new URLSearchParams();
@@ -108,6 +121,7 @@ export const api = {
     async deleteProduct(id: number): Promise<void> {
         const res = await fetch(`${API_URL}/products/${id}`, {
             method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
         });
         if (!res.ok) throw new Error('Failed to delete product');
     },
@@ -170,7 +184,27 @@ export const api = {
             id: o.id.toString(),
             userId: o.user_id,
             client: (o.customer_name === 'Гость' || o.customer_name === 'Guest' || !o.customer_name) && o.user ? o.user.first_name : o.customer_name,
-            clientPhone: (o.customer_phone === 'Уточнить' || o.customer_phone === 'Clarify' || !o.customer_phone) && o.user ? (o.user.phone_number || 'Уточнить') : o.customer_phone,
+            clientPhone: (() => {
+                let phone = (o.customer_phone && o.customer_phone !== 'Уточнить' && o.customer_phone !== 'Clarify')
+                    ? o.customer_phone
+                    : (o.user?.phone_number || 'Уточнить');
+
+                if (phone === 'Уточнить') return phone;
+
+                // Ensure starts with +
+                if (!phone.startsWith('+') && /^\d/.test(phone)) {
+                    phone = '+' + phone;
+                }
+
+                // Format Uzbekistan numbers: +998901234567 -> +998 90 123 45 67
+                // Remove spaces first to clean up
+                const clean = phone.replace(/\s/g, '');
+                if (clean.startsWith('+998') && clean.length === 13) {
+                    return `+998 ${clean.slice(4, 6)} ${clean.slice(6, 9)} ${clean.slice(9, 11)} ${clean.slice(11, 13)}`;
+                }
+
+                return phone;
+            })(),
             total: parseFloat(o.total_price),
             status: o.status,
             date: new Date(o.created_at).toLocaleDateString('ru-RU'),
@@ -217,9 +251,76 @@ export const api = {
         return data.map((o: any) => this._mapOrder(o));
     },
 
+    async getOrdersByClientId(clientId: number): Promise<Order[]> {
+        const res = await fetch(`${API_URL}/clients/${clientId}/orders`);
+        if (!res.ok) throw new Error('Failed to fetch client orders');
+        const data = await res.json();
+        return data.map((o: any) => this._mapOrder(o));
+    },
+
     async getClients(): Promise<Client[]> {
         const res = await fetch(`${API_URL}/clients`);
         if (!res.ok) throw new Error('Failed to fetch clients');
+        return res.json();
+    },
+
+    async createClickInvoice(orderId: string | number, amount: number, returnUrl: string): Promise<any> {
+        const res = await fetch(`${API_URL}/payments/create-click-invoice`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order_id: orderId, amount: Math.round(amount), return_url: returnUrl }),
+        });
+        if (!res.ok) throw new Error('Failed to create Click invoice');
+        return res.json();
+    },
+
+    async createPaymeInvoice(orderId: string | number, amount: number, returnUrl: string): Promise<any> {
+        const res = await fetch(`${API_URL}/payments/create-payme-invoice`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order_id: orderId, amount: Math.round(amount), return_url: returnUrl }),
+        });
+        if (!res.ok) throw new Error('Failed to create Payme invoice');
+        return res.json();
+    },
+
+    async searchClients(query: string): Promise<Client[]> {
+        const res = await fetch(`${API_URL}/clients/search?q=${query}`);
+        // If not implemented on backend, we might fallback to getClients and filter, but let's assume valid endpoint or just fetch all
+        // For now fetch all and filter client side if needed or assume backend search.
+        // Actually, backend might not have /clients/search. Let's stick to getClients for now and filter.
+        // Wait, common pattern.
+        return this.getClients().then(clients =>
+            clients.filter(c =>
+                c.first_name.toLowerCase().includes(query.toLowerCase()) ||
+                (c.phone_number && c.phone_number.includes(query))
+            )
+        );
+    },
+
+    async createClient(client: ClientCreate): Promise<Client> {
+        // Backend expects /api/user or specific endpoint?
+        // User router usually has create.
+        const res = await fetch(`${API_URL}/clients/offline`, { // We might need a specific endpoint or use generic user creation
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(client),
+        });
+        if (!res.ok) throw new Error('Failed to create client');
+        return res.json();
+    },
+
+    async createOrder(order: OrderCreate): Promise<Order> {
+        console.log("Sending order data:", JSON.stringify(order, null, 2));
+        const res = await fetch(`${API_URL}/orders`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(order),
+        });
+        if (!res.ok) {
+            const error = await res.text();
+            throw new Error(`Failed to create order: ${error}`);
+        }
         return res.json();
     },
 
@@ -297,7 +398,7 @@ export const api = {
         return res.json();
     },
 
-    async deleteEvent(telegramId: number, eventId: number): Promise<void> {
+    async deleteEvent(telegramId: number, eventId: number | string): Promise<void> {
         const res = await fetch(`${API_URL}/calendar/${telegramId}/events/${eventId}`, {
             method: 'DELETE',
         });
@@ -309,6 +410,16 @@ export const api = {
             method: 'DELETE',
         });
         if (!res.ok) throw new Error('Failed to delete client');
+    },
+
+    async broadcastMessage(text: string, filterType: 'all' | 'purchased' | 'leads'): Promise<{ total: number; success: number; failed: number }> {
+        const res = await fetch(`${API_URL}/clients/broadcast`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, filter_type: filterType }),
+        });
+        if (!res.ok) throw new Error('Failed to send broadcast');
+        return res.json();
     },
 
     // Stories
@@ -391,6 +502,40 @@ export const api = {
         });
         if (!res.ok) throw new Error('Failed to delete banner');
     },
+
+    // Wow Effects
+    async getWowEffects(): Promise<WowEffect[]> {
+        const res = await fetch(`${API_URL}/wow-effects/`);
+        if (!res.ok) throw new Error('Failed to fetch wow effects');
+        return res.json();
+    },
+
+    async createWowEffect(data: WowEffectCreate): Promise<WowEffect> {
+        const res = await fetch(`${API_URL}/wow-effects/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error('Failed to create wow effect');
+        return res.json();
+    },
+
+    async updateWowEffect(id: number, data: WowEffectUpdate): Promise<WowEffect> {
+        const res = await fetch(`${API_URL}/wow-effects/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error('Failed to update wow effect');
+        return res.json();
+    },
+
+    async deleteWowEffect(id: number): Promise<void> {
+        const res = await fetch(`${API_URL}/wow-effects/${id}`, {
+            method: 'DELETE',
+        });
+        if (!res.ok) throw new Error('Failed to delete wow effect');
+    },
 };
 
 export type Employee = {
@@ -422,9 +567,29 @@ export type Client = {
     username?: string;
     photo_url?: string;
     phone_number?: string;
+    birth_date?: string; // New field
     created_at: string;
     orders_count: number;
     total_spent: number;
+};
+
+export type ClientCreate = {
+    first_name: string;
+    phone_number?: string;
+    birth_date?: string;
+    telegram_id?: number | null; // Optional/Null for offline
+};
+
+export type OrderCreate = {
+    user_id?: number; // Optional if guest, but for offline user we will have ID
+    items: any;
+    total_price: number;
+    customer_name?: string;
+    customer_phone?: string;
+    status?: string; // 'done' by default for offline
+    payment_method?: string; // 'cash', 'card'
+    comment?: string;
+    extras?: any;
 };
 
 export type FamilyMember = {
@@ -445,7 +610,7 @@ export type FamilyMember = {
 };
 
 export type CalendarEvent = {
-    id: number;
+    id: number | string;
     user_id: number;
     family_member_id: number | null;
     title: string;

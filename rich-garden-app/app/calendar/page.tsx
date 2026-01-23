@@ -35,8 +35,6 @@ interface CalendarEventExtended extends CalendarEvent {
 }
 
 // --- Mock Data ---
-const DEFAULT_TG_ID = 12345 // For dev outside telegram
-
 const INITIAL_FAMILY: FamilyMember[] = []
 
 const MONTH_NAMES = [
@@ -70,7 +68,7 @@ const getCollapsedDays = (centerDate: Date) => {
 export default function CalendarPage() {
     const [events, setEvents] = useState<CalendarEvent[]>([])
     const [family, setFamily] = useState<FamilyMember[]>([])
-    const [telegramId, setTelegramId] = useState<number>(DEFAULT_TG_ID)
+    const [telegramId, setTelegramId] = useState<number | null>(null)
     const router = useRouter()
 
     const [isLoading, setIsLoading] = useState(true)
@@ -100,6 +98,7 @@ export default function CalendarPage() {
     const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
 
     const fetchData = async () => {
+        if (!telegramId) return;
         setIsLoading(true);
         try {
             const data = await api.getCalendarData(telegramId);
@@ -114,13 +113,23 @@ export default function CalendarPage() {
 
     // Initial Fetch
     useEffect(() => {
-        const tg = (window as any).Telegram?.WebApp;
-        const tgId = tg?.initDataUnsafe?.user?.id || DEFAULT_TG_ID;
-        setTelegramId(tgId);
+        if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
+            const tg = (window as any).Telegram.WebApp;
+            const userId = tg.initDataUnsafe?.user?.id;
+            if (userId) {
+                setTelegramId(userId);
+            } else {
+                setIsLoading(false);
+            }
+        } else {
+            setIsLoading(false);
+        }
     }, []);
 
     useEffect(() => {
-        fetchData();
+        if (telegramId) {
+            fetchData();
+        }
     }, [telegramId]);
 
     // Scroll Lock when modals are open
@@ -146,7 +155,7 @@ export default function CalendarPage() {
     }
 
     const handleSaveEvent = async () => {
-        if (!newEventTitle.trim()) return
+        if (!newEventTitle.trim() || !telegramId) return
 
         try {
             const res = await api.createEvent(telegramId, {
@@ -170,7 +179,7 @@ export default function CalendarPage() {
     }
 
     const handleDeleteEvent = async (id: number | string) => {
-        if (!selectedEvent) return;
+        if (!selectedEvent || !telegramId) return;
 
         try {
             // If it's a birthday event tied to a member, delete the member (which deletes all their events)
@@ -193,7 +202,7 @@ export default function CalendarPage() {
     }
 
     const handleSaveFamilyMember = async () => {
-        if (!newMemberName.trim() || !newMemberRelation.trim()) return
+        if (!newMemberName.trim() || !newMemberRelation.trim() || !telegramId) return
 
         try {
             const dateStr = `${newMemberBirthday.getFullYear()}-${String(newMemberBirthday.getMonth() + 1).padStart(2, '0')}-${String(newMemberBirthday.getDate()).padStart(2, '0')}`;
@@ -233,10 +242,6 @@ export default function CalendarPage() {
                             className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-gray-100 text-gray-400 active:scale-95 transition-all hover:text-black hover:border-black/10"
                         >
                             <HelpCircle size={18} strokeWidth={1.5} />
-                        </button>
-                        <button className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-gray-100 text-gray-400 active:scale-95 transition-all hover:text-black hover:border-black/10 relative">
-                            <Bell size={18} strokeWidth={1.5} />
-                            <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-red-500 rounded-full border-2 border-white"></span>
                         </button>
                     </div>
                 </div>
@@ -461,8 +466,17 @@ export default function CalendarPage() {
 
                     <div className="space-y-1">
                         {(() => {
-                            const dayEvents = events.filter(e => e.date.toDateString() === selectedDate.toDateString())
-                            const list = dayEvents.length > 0 ? dayEvents : events.slice(0, 5)
+                            // Filter out birthday events for the bottom list to avoid duplication
+                            // since they are already in the "Relatives" horizontal section
+                            const nonBirthdayEvents = events.filter(e => e.type !== 'birthday');
+
+                            const dayEvents = nonBirthdayEvents.filter(e => e.date.toDateString() === selectedDate.toDateString())
+
+                            // If selected day has events, show them. Otherwise show upcoming events.
+                            const list = dayEvents.length > 0 ? dayEvents : nonBirthdayEvents
+                                .filter(e => e.date >= new Date(new Date().setHours(0, 0, 0, 0)))
+                                .sort((a, b) => a.date.getTime() - b.date.getTime())
+                                .slice(0, 5);
 
                             if (list.length === 0) return (
                                 <div className="py-20 text-center">
@@ -638,15 +652,15 @@ export default function CalendarPage() {
                         transition={{ type: "spring", damping: 25, stiffness: 200 }}
                         className="fixed bottom-0 inset-x-0 z-[60] bg-white rounded-t-[48px] overflow-hidden max-h-[90vh] flex flex-col"
                     >
-                        <div className="p-8 pb-12">
-                            <div className="w-12 h-1.5 bg-gray-100 rounded-full mx-auto mb-10" />
-                            <div className="flex items-center justify-between mb-10">
-                                <h2 className="text-[28px] font-semibold text-black leading-none tracking-tight">Новое событие</h2>
-                                <button onClick={() => setIsAddEventOpen(false)} className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 active:scale-95 transition-all"><X size={24} /></button>
+                        <div className="p-6 pb-10">
+                            <div className="w-10 h-1 bg-gray-100 rounded-full mx-auto mb-8" />
+                            <div className="flex items-center justify-between mb-8">
+                                <h2 className="text-[22px] font-semibold text-black leading-none tracking-tight">Новое событие</h2>
+                                <button onClick={() => setIsAddEventOpen(false)} className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 active:scale-95 transition-all"><X size={20} /></button>
                             </div>
 
-                            <div className="space-y-8">
-                                <div className="flex gap-3 overflow-x-auto no-scrollbar">
+                            <div className="space-y-6">
+                                <div className="flex gap-2 overflow-x-auto no-scrollbar">
                                     {[
                                         { id: 'birthday', label: 'ДР', icon: Cake, color: 'text-pink-500' },
                                         { id: 'anniversary', label: 'Годовщина', icon: Heart, color: 'text-red-500' },
@@ -656,38 +670,38 @@ export default function CalendarPage() {
                                             key={type.id}
                                             onClick={() => setSelectedType(type.id as EventType)}
                                             className={cn(
-                                                "px-6 py-4 rounded-[24px] flex items-center gap-3 font-medium whitespace-nowrap active:scale-95 transition-all border-2 flex-1 justify-center",
+                                                "px-4 py-3 rounded-[20px] flex items-center gap-2 font-medium whitespace-nowrap active:scale-95 transition-all border-2 flex-1 justify-center",
                                                 selectedType === type.id
                                                     ? "bg-black text-white border-black"
                                                     : "bg-gray-50 text-gray-900 border-transparent hover:border-gray-100"
                                             )}
                                         >
-                                            <type.icon size={20} className={selectedType === type.id ? "text-white" : type.color} />
-                                            <span>{type.label}</span>
+                                            <type.icon size={18} className={selectedType === type.id ? "text-white" : type.color} />
+                                            <span className="text-sm">{type.label}</span>
                                         </button>
                                     ))}
                                 </div>
 
-                                <div className="space-y-4">
-                                    <div className="bg-gray-50/50 p-6 rounded-[32px] border border-gray-100/50">
-                                        <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest ml-1">Название</label>
+                                <div className="space-y-3">
+                                    <div className="bg-gray-50/50 p-4 rounded-[24px] border border-gray-100/50">
+                                        <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest ml-1">Название</label>
                                         <input
                                             type="text"
                                             value={newEventTitle}
                                             onChange={(e) => setNewEventTitle(e.target.value)}
                                             placeholder="Например: День рождения Мамы"
-                                            className="w-full bg-transparent text-[19px] font-medium text-black outline-none placeholder:text-gray-300 mt-2"
+                                            className="w-full bg-transparent text-[16px] font-medium text-black outline-none placeholder:text-gray-300 mt-1"
                                         />
                                     </div>
 
-                                    <div className="flex gap-4">
-                                        <div onClick={() => setIsDatePickerOpen(true)} className="flex-1 bg-gray-50/50 p-6 rounded-[32px] border border-gray-100/50 cursor-pointer active:bg-gray-100 transition-colors">
-                                            <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest ml-1">Дата</label>
-                                            <div className="text-[19px] font-medium text-black mt-2">{newEventDate.toLocaleDateString('ru-RU')}</div>
+                                    <div className="flex gap-3">
+                                        <div onClick={() => setIsDatePickerOpen(true)} className="flex-1 bg-gray-50/50 p-4 rounded-[24px] border border-gray-100/50 cursor-pointer active:bg-gray-100 transition-colors">
+                                            <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest ml-1">Дата</label>
+                                            <div className="text-[16px] font-medium text-black mt-1">{newEventDate.toLocaleDateString('ru-RU')}</div>
                                         </div>
-                                        <div className="flex-1 bg-gray-50/50 p-6 rounded-[32px] border border-gray-100/50">
-                                            <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest ml-1">Повтор</label>
-                                            <select className="w-full bg-transparent text-[19px] font-medium text-black outline-none mt-2 appearance-none">
+                                        <div className="flex-1 bg-gray-50/50 p-4 rounded-[24px] border border-gray-100/50">
+                                            <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest ml-1">Повтор</label>
+                                            <select className="w-full bg-transparent text-[16px] font-medium text-black outline-none mt-1 appearance-none">
                                                 <option>Ежегодно</option>
                                                 <option>Никогда</option>
                                             </select>
@@ -697,7 +711,7 @@ export default function CalendarPage() {
 
                                 <button
                                     onClick={handleSaveEvent}
-                                    className="w-full py-5 bg-black text-white text-[18px] font-semibold rounded-[32px] active:scale-[0.98] transition-all"
+                                    className="w-full py-4 bg-black text-white text-[16px] font-semibold rounded-[24px] active:scale-[0.98] transition-all"
                                 >
                                     Сохранить
                                 </button>
@@ -772,47 +786,47 @@ export default function CalendarPage() {
                         transition={{ type: "spring", damping: 25, stiffness: 200 }}
                         className="fixed bottom-0 inset-x-0 z-[90] bg-white rounded-t-[48px] overflow-hidden flex flex-col"
                     >
-                        <div className="p-8 pb-12">
-                            <div className="w-12 h-1.5 bg-gray-100 rounded-full mx-auto mb-10" />
+                        <div className="p-6 pb-10">
+                            <div className="w-10 h-1 bg-gray-100 rounded-full mx-auto mb-8" />
                             <div className="flex items-center justify-between mb-8">
-                                <h2 className="text-[24px] font-semibold text-black leading-none tracking-tight">Событие</h2>
-                                <button onClick={() => setSelectedEvent(null)} className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 active:scale-95 transition-all"><X size={24} /></button>
+                                <h2 className="text-[20px] font-semibold text-black leading-none tracking-tight">Событие</h2>
+                                <button onClick={() => setSelectedEvent(null)} className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 active:scale-95 transition-all"><X size={20} /></button>
                             </div>
 
-                            <div className="flex items-center gap-6 mb-10">
+                            <div className="flex items-center gap-5 mb-8">
                                 <div className={cn(
-                                    "w-20 h-20 rounded-[32px] flex items-center justify-center",
+                                    "w-16 h-16 rounded-[24px] flex items-center justify-center",
                                     selectedEvent.type === 'birthday' ? "bg-pink-50 text-pink-500" :
                                         selectedEvent.type === 'anniversary' ? "bg-red-50 text-red-500" : "bg-blue-50 text-blue-500"
                                 )}>
-                                    {selectedEvent.type === 'birthday' ? <Cake size={36} strokeWidth={1.5} /> :
-                                        selectedEvent.type === 'anniversary' ? <Heart size={36} strokeWidth={1.5} /> : <Users size={36} strokeWidth={1.5} />}
+                                    {selectedEvent.type === 'birthday' ? <Cake size={28} strokeWidth={1.5} /> :
+                                        selectedEvent.type === 'anniversary' ? <Heart size={28} strokeWidth={1.5} /> : <Users size={28} strokeWidth={1.5} />}
                                 </div>
                                 <div>
-                                    <h3 className="text-[22px] font-semibold text-black leading-tight">{selectedEvent.title}</h3>
-                                    <div className="flex items-center gap-2 mt-2 text-gray-400">
-                                        <CalendarIcon size={16} />
-                                        <span className="text-[15px] font-medium">
+                                    <h3 className="text-[18px] font-semibold text-black leading-tight">{selectedEvent.title}</h3>
+                                    <div className="flex items-center gap-2 mt-1.5 text-gray-400">
+                                        <CalendarIcon size={14} />
+                                        <span className="text-[14px] font-medium">
                                             {selectedEvent.date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
                                         </span>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                                 <button
                                     onClick={() => router.push('/catalog')}
-                                    className="w-full py-5 bg-gray-50 text-gray-900 text-[17px] font-semibold rounded-[32px] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+                                    className="w-full py-4 bg-gray-50 text-gray-900 text-[15px] font-semibold rounded-[24px] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
                                 >
-                                    <Gift size={20} strokeWidth={1.5} />
+                                    <Gift size={18} strokeWidth={1.5} />
                                     Подобрать подарок
                                 </button>
 
                                 <button
                                     onClick={() => setIsDeleteConfirmOpen(true)}
-                                    className="w-full py-5 bg-red-50 text-red-500 text-[17px] font-semibold rounded-[32px] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+                                    className="w-full py-4 bg-red-50 text-red-500 text-[15px] font-semibold rounded-[24px] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
                                 >
-                                    <Trash2 size={20} strokeWidth={1.5} />
+                                    <Trash2 size={18} strokeWidth={1.5} />
                                     Удалить событие
                                 </button>
                             </div>
@@ -923,44 +937,44 @@ export default function CalendarPage() {
                         transition={{ type: "spring", damping: 25, stiffness: 200 }}
                         className="fixed bottom-0 inset-x-0 z-[60] bg-white rounded-t-[48px] overflow-hidden max-h-[90vh] flex flex-col"
                     >
-                        <div className="p-8 pb-12">
-                            <div className="w-12 h-1.5 bg-gray-100 rounded-full mx-auto mb-10" />
-                            <div className="flex items-center justify-between mb-10">
-                                <h2 className="text-[28px] font-semibold text-black leading-none tracking-tight">Новый член семьи</h2>
-                                <button onClick={() => setIsAddFamilyOpen(false)} className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 active:scale-95 transition-all"><X size={24} /></button>
+                        <div className="p-6 pb-10">
+                            <div className="w-10 h-1 bg-gray-100 rounded-full mx-auto mb-8" />
+                            <div className="flex items-center justify-between mb-8">
+                                <h2 className="text-[22px] font-semibold text-black leading-none tracking-tight">Новый член семьи</h2>
+                                <button onClick={() => setIsAddFamilyOpen(false)} className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 active:scale-95 transition-all"><X size={20} /></button>
                             </div>
 
-                            <div className="space-y-6">
-                                <div className="bg-gray-50/50 p-6 rounded-[32px] border border-gray-100/50">
-                                    <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest ml-1">Имя</label>
+                            <div className="space-y-4">
+                                <div className="bg-gray-50/50 p-4 rounded-[24px] border border-gray-100/50">
+                                    <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest ml-1">Имя</label>
                                     <input
                                         type="text"
                                         value={newMemberName}
                                         onChange={(e) => setNewMemberName(e.target.value)}
                                         placeholder="Например: Мама"
-                                        className="w-full bg-transparent text-[19px] font-medium text-black outline-none placeholder:text-gray-300 mt-2"
+                                        className="w-full bg-transparent text-[17px] font-medium text-black outline-none placeholder:text-gray-300 mt-1"
                                     />
                                 </div>
 
-                                <div className="bg-gray-50/50 p-6 rounded-[32px] border border-gray-100/50">
-                                    <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest ml-1">Кто это?</label>
+                                <div className="bg-gray-50/50 p-4 rounded-[24px] border border-gray-100/50">
+                                    <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest ml-1">Кто это?</label>
                                     <input
                                         type="text"
                                         value={newMemberRelation}
                                         onChange={(e) => setNewMemberRelation(e.target.value)}
                                         placeholder="Например: Мама, Сестра"
-                                        className="w-full bg-transparent text-[19px] font-medium text-black outline-none placeholder:text-gray-300 mt-2"
+                                        className="w-full bg-transparent text-[17px] font-medium text-black outline-none placeholder:text-gray-300 mt-1"
                                     />
                                 </div>
 
-                                <div onClick={() => setIsMemberDatePickerOpen(true)} className="bg-gray-50/50 p-6 rounded-[32px] border border-gray-100/50 cursor-pointer active:bg-gray-100 transition-colors">
-                                    <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest ml-1">День рождения</label>
-                                    <div className="text-[19px] font-medium text-black mt-2">{newMemberBirthday.toLocaleDateString('ru-RU')}</div>
+                                <div onClick={() => setIsMemberDatePickerOpen(true)} className="bg-gray-50/50 p-4 rounded-[24px] border border-gray-100/50 cursor-pointer active:bg-gray-100 transition-colors">
+                                    <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest ml-1">День рождения</label>
+                                    <div className="text-[17px] font-medium text-black mt-1">{newMemberBirthday.toLocaleDateString('ru-RU')}</div>
                                 </div>
 
                                 <button
                                     onClick={handleSaveFamilyMember}
-                                    className="w-full py-5 bg-black text-white text-[18px] font-semibold rounded-[32px] active:scale-[0.98] transition-all"
+                                    className="w-full py-4 bg-black text-white text-[17px] font-semibold rounded-[24px] active:scale-[0.98] transition-all"
                                 >
                                     Добавить в семью
                                 </button>

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, Suspense, useMemo } from "react"
-import { Search, SlidersHorizontal, Plus, X, Package, AlertTriangle, Eye } from "lucide-react"
+import { Search, SlidersHorizontal, Plus, X, Package, AlertTriangle, Eye, Trash2 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import Link from "next/link"
 import Image from "next/image"
@@ -16,9 +16,14 @@ function WarehouseContent() {
     const [isLoading, setIsLoading] = useState(true)
 
     const [activeTab, setActiveTab] = useState("all")
-    const [isSearchOpen, setIsSearchOpen] = useState(false)
-    const [isLowStockOnly, setIsLowStockOnly] = useState(false)
     const [searchQuery, setSearchQuery] = useState("")
+    const [isLowStockOnly, setIsLowStockOnly] = useState(false)
+    const [isSearchOpen, setIsSearchOpen] = useState(false)
+
+    // Category Management State
+    const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
+    const [deleteAlert, setDeleteAlert] = useState<{ isOpen: boolean, category: any | null }>({ isOpen: false, category: null })
+    const [isDeleting, setIsDeleting] = useState(false)
 
     useEffect(() => {
         const fetchProducts = async () => {
@@ -33,6 +38,18 @@ function WarehouseContent() {
         }
         fetchProducts()
     }, [])
+
+    // Lock body scroll when modal is open
+    useEffect(() => {
+        if (isCategoryModalOpen) {
+            document.body.style.overflow = "hidden"
+        } else {
+            document.body.style.overflow = ""
+        }
+        return () => {
+            document.body.style.overflow = ""
+        }
+    }, [isCategoryModalOpen])
 
     const selectedItem = useMemo(() =>
         itemId ? products.find(p => p.id.toString() === itemId) : null
@@ -112,6 +129,52 @@ function WarehouseContent() {
 
         return result;
     }, [products]);
+
+    const manageCategoriesList = useMemo(() => {
+        return tabOptions.filter(t => t.type === 'bouquet_single' || t.type === 'supply_single');
+    }, [tabOptions]);
+
+    const handleDeleteCategory = async () => {
+        const target = deleteAlert.category;
+        if (!target) return;
+
+        setIsDeleting(true);
+        try {
+            // Identify products to delete
+            const productsToDelete = products.filter(item => {
+                const isBouquetItem = checkIsBouquet(item);
+                const cat = item.category?.toLowerCase() || '';
+
+                if (target.type === 'bouquet_single') {
+                    if (!isBouquetItem) return false;
+                    const itemCat = item.category?.toLowerCase() || '';
+                    const tabCat = target.rawCat?.toLowerCase() || target.label.toLowerCase();
+                    return itemCat === tabCat;
+                } else if (target.type === 'supply_single') {
+                    if (isBouquetItem) return false;
+                    const itemLabel = CATEGORY_MAPPING[cat] || cat;
+                    return itemLabel.toLowerCase() === target.label.toLowerCase();
+                }
+                return false;
+            });
+
+            // Execute Deletion
+            await Promise.all(productsToDelete.map(p => api.deleteProduct(p.id)));
+
+            // Update State
+            setProducts(prev => prev.filter(p => !productsToDelete.some(del => del.id === p.id)));
+            setDeleteAlert({ isOpen: false, category: null });
+
+            // If active tab was deleted, switch to ALL
+            if (activeTab === target.id) setActiveTab('all');
+
+        } catch (e) {
+            console.error(e);
+            alert("Ошибка при удалении категории");
+        } finally {
+            setIsDeleting(false);
+        }
+    };
 
     // Stats
     const stats = useMemo(() => {
@@ -202,6 +265,7 @@ function WarehouseContent() {
                                     src={item.image.startsWith("/static") ? `http://localhost:8000${item.image}` : item.image}
                                     alt={item.name}
                                     fill
+                                    sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
                                     className="object-contain drop-shadow-xl"
                                 />
                             </div>
@@ -270,48 +334,55 @@ function WarehouseContent() {
     return (
         <div className="min-h-screen bg-gray-50/50 pb-32">
 
-            {/* Header with Animated Search */}
+            {/* Header: Title, Search, Category */}
             <div className="pt-6 px-6 mb-2">
                 <div className="flex items-center justify-between h-14 mb-2 relative">
-                    {/* Title & Actions (Visible when search is closed) */}
+
+                    {/* Default Actions (Title + Buttons) */}
                     <div className={`absolute inset-0 flex items-center justify-between transition-all duration-300 ${isSearchOpen ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'}`}>
-                        <div className="flex items-center gap-4">
-                            <h1 className="text-2xl font-bold tracking-tight text-gray-900">Склад</h1>
-                        </div>
+                        <h1 className="text-2xl font-bold tracking-tight text-gray-900">Склад</h1>
 
                         <div className="flex gap-2">
                             <button
                                 onClick={() => setIsSearchOpen(true)}
-                                className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm text-gray-500 hover:text-black transition-colors"
+                                className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-900 shadow-sm active:scale-95 transition-all hover:bg-gray-50"
                             >
                                 <Search size={20} />
                             </button>
-                            <Link href="/flowers/new" className="flex items-center justify-center w-10 h-10 bg-[#2663eb] text-white rounded-full shadow-lg shadow-blue-500/20 hover:bg-blue-600 active:scale-95 transition-all">
-                                <Plus size={22} />
-                            </Link>
+
+                            <button
+                                onClick={() => setIsCategoryModalOpen(true)}
+                                className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-900 shadow-sm active:scale-95 transition-all hover:bg-gray-50"
+                            >
+                                <SlidersHorizontal size={20} strokeWidth={2} />
+                            </button>
                         </div>
                     </div>
 
-                    {/* Search Input (Visible when search is open) */}
-                    <div className={`absolute inset-0 flex items-center gap-3 transition-all duration-300 ${isSearchOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}>
-                        <div className="flex-1 relative">
+                    {/* Search Input (Visible when open) */}
+                    <div className={`absolute inset-0 flex items-center gap-2 transition-all duration-300 ${isSearchOpen ? 'opacity-100 scale-100 z-10' : 'opacity-0 scale-95 pointer-events-none'}`}>
+                        <div className="relative flex-1">
                             <input
                                 type="text"
-                                placeholder="Поиск по складу..."
+                                placeholder="Поиск..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full h-10 pl-10 pr-4 rounded-full border border-gray-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white text-sm"
+                                className="w-full h-12 pl-12 pr-4 bg-white text-gray-900 placeholder:text-gray-400/80 rounded-[20px] border border-gray-200 shadow-none focus:outline-none focus:ring-4 focus:ring-black/5 focus:border-gray-300 transition-all text-sm font-medium"
                                 autoFocus={isSearchOpen}
                             />
-                            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                                <Search size={20} />
+                            </div>
                         </div>
+
                         <button
                             onClick={() => { setIsSearchOpen(false); setSearchQuery(""); }}
-                            className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors"
+                            className="w-12 h-12 bg-white rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:text-red-500 shadow-md active:scale-95 transition-all shrink-0"
                         >
-                            <X size={20} />
+                            <X size={22} />
                         </button>
                     </div>
+
                 </div>
             </div>
 
@@ -411,12 +482,140 @@ function WarehouseContent() {
                 </div>
             </div>
 
-            {/* Modal */}
+            {/* Categories Modal */}
+            <AnimatePresence>
+                {isCategoryModalOpen && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsCategoryModalOpen(false)}
+                            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl relative z-10 overflow-hidden"
+                        >
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 className="text-xl font-bold text-gray-900">Категории</h2>
+                                <button
+                                    onClick={() => setIsCategoryModalOpen(false)}
+                                    className="w-10 h-10 rounded-full bg-gray-50 text-gray-500 flex items-center justify-center hover:bg-gray-100 transition-colors"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2 -mr-2 custom-scrollbar">
+                                {manageCategoriesList.length > 0 ? (
+                                    manageCategoriesList.map((cat, index) => {
+                                        // Calculate count for this category
+                                        const count = products.filter(item => {
+                                            const isBouquetItem = checkIsBouquet(item);
+                                            const itemCat = item.category?.toLowerCase() || '';
+
+                                            if (cat.type === 'bouquet_single') {
+                                                if (!isBouquetItem) return false;
+                                                const tabCat = cat.rawCat?.toLowerCase() || cat.label.toLowerCase();
+                                                return itemCat === tabCat;
+                                            } else if (cat.type === 'supply_single') {
+                                                if (isBouquetItem) return false;
+                                                const itemLabel = CATEGORY_MAPPING[itemCat] || itemCat;
+                                                return itemLabel.toLowerCase() === cat.label.toLowerCase();
+                                            }
+                                            return false;
+                                        }).length;
+
+                                        return (
+                                            <div
+                                                key={cat.id}
+                                                className="flex items-center justify-between p-3 pl-4 bg-gray-50/50 rounded-[24px] border border-transparent hover:border-gray-200 hover:bg-white hover:shadow-sm transition-all group"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${index % 2 === 0 ? 'bg-blue-50 text-blue-500' : 'bg-purple-50 text-purple-500'}`}>
+                                                        <Package size={18} />
+                                                    </div>
+                                                    <div>
+                                                        <span className="font-medium text-gray-900 block text-sm leading-tight">{cat.label}</span>
+                                                        <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">{count} товаров</span>
+                                                    </div>
+                                                </div>
+
+                                                <button
+                                                    onClick={() => setDeleteAlert({ isOpen: true, category: cat })}
+                                                    className="w-9 h-9 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition-colors"
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </div>
+                                        )
+                                    })
+                                ) : (
+                                    <div className="text-center text-gray-400 py-10 flex flex-col items-center">
+                                        <Package size={48} className="mb-2 opacity-20" />
+                                        <p>Нет категорий</p>
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Delete Confirmation Alert */}
+            <AnimatePresence>
+                {deleteAlert.isOpen && (
+                    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setDeleteAlert({ isOpen: false, category: null })}
+                            className="absolute inset-0 bg-black/50 backdrop-blur-md"
+                        />
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="bg-white w-full max-w-[320px] rounded-[32px] p-6 shadow-2xl relative z-10 text-center"
+                        >
+                            <div className="w-16 h-16 rounded-full bg-red-50 text-red-500 flex items-center justify-center mx-auto mb-4">
+                                <AlertTriangle size={32} />
+                            </div>
+
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">Удалить категорию?</h3>
+                            <p className="text-gray-500 text-sm mb-6 leading-relaxed">
+                                Вы уверены, что хотите удалить категорию <span className="font-bold text-gray-900">"{deleteAlert.category?.label}"</span>?
+                                <br />
+                                <span className="text-red-500 font-bold block mt-2">Все товары в этой категории будут удалены навсегда!</span>
+                            </p>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    onClick={() => setDeleteAlert({ isOpen: false, category: null })}
+                                    className="h-12 rounded-[20px] bg-gray-100 text-gray-900 font-bold text-sm hover:bg-gray-200 transition-colors"
+                                >
+                                    Отмена
+                                </button>
+                                <button
+                                    onClick={handleDeleteCategory}
+                                    disabled={isDeleting}
+                                    className="h-12 rounded-[20px] bg-red-500 text-white font-bold text-sm hover:bg-red-600 transition-colors shadow-lg shadow-red-500/30 flex items-center justify-center"
+                                >
+                                    {isDeleting ? '...' : 'Удалить'}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Product Details Modal */}
             {selectedItem && (
-                // @ts-ignore - ProductDetails expectations might strictly mock Item type, need to check if Product works or verify mapping
-                // Assuming ProductDetails can handle Product or we might need minor tweak. 
-                // Let's pass it anyway, usually we'd ensure type compatibility.
-                // For now, let's assume it works or we'll fix ProductDetails next if broken.
+                // @ts-ignore
                 <ProductDetails item={selectedItem} isModal={true} />
             )}
         </div>

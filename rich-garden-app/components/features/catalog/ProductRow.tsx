@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { Heart, Plus, Star, ArrowUpRight } from 'lucide-react';
+import { Heart, Plus, Star, ArrowUpRight, Check } from 'lucide-react';
 import { useFavorites } from '@/context/FavoritesContext';
 import { useCart } from '@/context/CartContext';
 import { toast } from 'sonner';
@@ -10,8 +10,10 @@ import { api } from '@/lib/api';
 
 export function ProductRow({ title, products, categorySlug, telegramUserId }: { title: string, products: any[], categorySlug: string, telegramUserId?: number }) {
     const { toggleFavorite, isFavorite } = useFavorites();
-    const { addToCart } = useCart();
+    const { addToCart, cartItems, removeFromCart } = useCart();
     const [scrollProgress, setScrollProgress] = useState(0);
+
+    const isInCart = (productId: number | string) => cartItems.some(item => String(item.product.id) === String(productId));
 
     const handleProductClick = (productId: number) => {
         if (telegramUserId) {
@@ -69,10 +71,6 @@ export function ProductRow({ title, products, categorySlug, telegramUserId }: { 
                                     <Heart size={16} className={isFavorite(product.id) ? "fill-red-500 text-red-500" : "hover:text-red-500 transition-colors"} />
                                 </button>
 
-                                <div className="absolute bottom-2.5 left-2.5 px-2 py-1 bg-white/80 backdrop-blur-md rounded-lg flex items-center gap-1 shadow-sm">
-                                    <Star size={10} className="fill-yellow-400 text-yellow-400" />
-                                    <span className="text-[10px] font-bold text-gray-800">{product.rating || 5.0}</span>
-                                </div>
                             </div>
 
                             <div className="space-y-1 px-1">
@@ -83,11 +81,16 @@ export function ProductRow({ title, products, categorySlug, telegramUserId }: { 
                                         onClick={(e) => {
                                             e.preventDefault();
                                             e.stopPropagation();
-                                            addToCart(product);
+                                            if (isInCart(product.id)) {
+                                                removeFromCart(product.id);
+                                                toast.error("Удалено из корзины", { description: product.name });
+                                            } else {
+                                                addToCart(product);
+                                            }
                                         }}
-                                        className="w-7 h-7 bg-black text-white rounded-full flex items-center justify-center active:scale-90 transition-transform shadow-md hover:bg-gray-800"
+                                        className={`w-7 h-7 bg-black text-white rounded-full flex items-center justify-center active:scale-90 transition-all shadow-md hover:bg-gray-800`}
                                     >
-                                        <Plus size={14} />
+                                        {isInCart(product.id) ? <Check size={14} strokeWidth={3} /> : <Plus size={14} />}
                                     </button>
                                 </div>
                             </div>

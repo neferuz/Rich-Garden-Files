@@ -130,16 +130,6 @@ export default function CalendarPage() {
 
     // Filter Items Logic
     const filteredItems = useMemo(() => {
-        let items: any[] = []
-
-        // Helper to process family members into unified format
-        const familyAsItems = family.map(m => ({
-            ...m,
-            itemType: 'birthday',
-            daysLeft: getDaysLeftFormatted(m.birthday),
-            dateObj: new Date(m.birthday || new Date()) // approximate for sorting if needed
-        }))
-
         const eventsAsItems = events.map(e => ({
             ...e,
             itemType: 'event',
@@ -153,43 +143,33 @@ export default function CalendarPage() {
             dateObj: new Date(e.date)
         }))
 
+        let items = eventsAsItems
+
         if (activeFilter === 'today') {
-            items = [...eventsAsItems, ...familyAsItems].filter(i => {
-                if (i.itemType === 'birthday') {
-                    const d = new Date((i as any).birthday!)
-                    return d.getDate() === selectedDate.getDate() && d.getMonth() === selectedDate.getMonth()
-                } else {
-                    const d = new Date((i as any).date)
-                    return d.getDate() === selectedDate.getDate() &&
-                        d.getMonth() === selectedDate.getMonth() &&
-                        d.getFullYear() === selectedDate.getFullYear()
-                }
+            items = eventsAsItems.filter(i => {
+                const d = new Date((i as any).date)
+                return d.getDate() === selectedDate.getDate() &&
+                    d.getMonth() === selectedDate.getMonth() &&
+                    d.getFullYear() === selectedDate.getFullYear()
             })
         }
         else if (activeFilter === 'upcoming') {
-            items = [...eventsAsItems, ...familyAsItems].filter(i =>
+            items = eventsAsItems.filter(i =>
                 i.daysLeft !== null && i.daysLeft >= 0 && i.daysLeft <= 45
             ).sort((a, b) => (a.daysLeft || 999) - (b.daysLeft || 999))
         }
         else if (activeFilter === 'month') {
-            items = [...eventsAsItems, ...familyAsItems].filter(i => {
-                if (i.itemType === 'birthday') {
-                    const d = new Date((i as any).birthday!)
-                    return d.getMonth() === viewDate.getMonth()
-                } else {
-                    const d = new Date((i as any).date)
-                    return d.getMonth() === viewDate.getMonth() && d.getFullYear() === viewDate.getFullYear()
-                }
+            items = eventsAsItems.filter(i => {
+                const d = new Date((i as any).date)
+                return d.getMonth() === viewDate.getMonth() && d.getFullYear() === viewDate.getFullYear()
             }).sort((a, b) => {
-                const dayA = new Date((a as any).date || (a as any).birthday).getDate()
-                const dayB = new Date((b as any).date || (b as any).birthday).getDate()
+                const dayA = new Date((a as any).date).getDate()
+                const dayB = new Date((b as any).date).getDate()
                 return dayA - dayB
             })
         }
         else if (activeFilter === 'all') {
-            // Show everything sorted by "days left" (nearest future first), including today/tomorrow
-            // We filter out past events (daysLeft < 0) for cleaner view? Or just show all upcoming.
-            items = [...eventsAsItems, ...familyAsItems]
+            items = eventsAsItems
                 .filter(i => i.daysLeft !== null && i.daysLeft >= 0)
                 .sort((a, b) => (a.daysLeft || 999) - (b.daysLeft || 999))
         }
@@ -197,13 +177,13 @@ export default function CalendarPage() {
         // Search Filter
         if (searchQuery) {
             items = items.filter(i => {
-                const name = i.name || i.title || ''
+                const name = i.title || ''
                 return name.toLowerCase().includes(searchQuery.toLowerCase())
             })
         }
 
         return items
-    }, [events, family, selectedDate, activeFilter, viewDate, searchQuery])
+    }, [events, selectedDate, activeFilter, viewDate, searchQuery])
 
 
     const renderCard = (item: any, index: number) => {
@@ -453,88 +433,81 @@ export default function CalendarPage() {
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.9, y: 20 }}
                             transition={{ type: "spring", damping: 30, stiffness: 300 }}
-                            className="relative w-full max-w-sm bg-white rounded-[32px] p-8 shadow-2xl z-10"
+                            className="relative w-full max-w-sm bg-white rounded-[24px] p-6 shadow-2xl z-10"
                         >
 
-                            <div className="flex items-center gap-5 mb-8">
+                            <div className="flex items-center gap-4 mb-6">
                                 <div className={cn(
-                                    "w-16 h-16 rounded-[22px] flex items-center justify-center shadow-sm",
-                                    selectedItem.type === 'member' ? "bg-rose-50 text-rose-500" : "bg-blue-50 text-blue-600"
+                                    "w-14 h-14 rounded-[18px] flex items-center justify-center shadow-sm",
+                                    selectedItem.type === 'member' ? "bg-rose-50 text-rose-500" : "bg-blue-50 text-blue-500"
                                 )}>
-                                    {selectedItem.type === 'member' ? <Cake size={28} strokeWidth={1.5} /> : <CalendarIcon size={28} strokeWidth={1.5} />}
+                                    {selectedItem.type === 'member' ? <Cake size={24} strokeWidth={1.5} /> : <CalendarIcon size={24} strokeWidth={1.5} />}
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-bold text-gray-900 leading-tight">
+                                    <h2 className="text-lg font-bold text-gray-900 leading-tight">
                                         {selectedItem.data.name || selectedItem.data.title}
                                     </h2>
-                                    <p className="text-sm font-medium text-gray-400 mt-1">
+                                    <p className="text-xs font-medium text-gray-400 mt-0.5">
                                         {selectedItem.type === 'member' ? selectedItem.data.relation : 'Личное событие'}
                                     </p>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-3 mb-6">
-                                <div className="bg-[#F8F9FB] p-4 rounded-[20px] text-center">
+                                <div className="bg-[#F8F9FB] p-3 rounded-[18px] text-center">
                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Когда</p>
-                                    <p className="text-[15px] font-bold text-gray-900">
+                                    <p className="text-sm font-bold text-gray-900">
                                         {new Date(selectedItem.type === 'member' ? selectedItem.data.birthday : selectedItem.data.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
                                     </p>
                                 </div>
-                                <div className="bg-blue-50 p-4 rounded-[20px] text-center">
+                                <div className="bg-blue-50 p-3 rounded-[18px] text-center">
                                     <p className="text-[10px] font-bold text-blue-400 uppercase tracking-wide mb-1">Осталось</p>
-                                    <p className="text-[15px] font-bold text-blue-600">
+                                    <p className="text-sm font-bold text-blue-600">
                                         {selectedItem.data.daysLeft} дней
                                     </p>
                                 </div>
                             </div>
 
                             {/* Metadata Section */}
-                            <div className="bg-gray-50/50 rounded-[28px] p-4 mb-8 border border-gray-100/50 space-y-4 text-left">
+                            <div className="bg-gray-50/50 rounded-[24px] p-3.5 mb-6 border border-gray-100/50 space-y-3 text-left">
                                 {selectedItem.data.user && (
                                     <Link
                                         href={`/clients/${selectedItem.data.user.id}`}
                                         className="flex items-center justify-between group active:scale-[0.98] transition-all"
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className="w-12 h-12 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 shadow-sm overflow-hidden relative">
+                                            <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 shadow-sm overflow-hidden relative">
                                                 {selectedItem.data.user.photo_url ? (
                                                     <img
                                                         src={selectedItem.data.user.photo_url}
                                                         alt={selectedItem.data.user.first_name}
                                                         className="w-full h-full object-cover"
-                                                        onError={(e) => {
-                                                            (e.target as HTMLImageElement).style.display = 'none';
-                                                            (e.target as HTMLImageElement).parentElement!.classList.add('bg-gray-100');
-                                                        }}
                                                     />
                                                 ) : (
-                                                    <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-400 font-bold text-lg">
+                                                    <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-400 font-bold text-sm">
                                                         {selectedItem.data.user.first_name[0]}
                                                     </div>
                                                 )}
                                             </div>
                                             <div>
-                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight leading-none mb-1">Добавил</p>
-                                                <p className="text-[15px] font-bold text-gray-900 leading-tight group-hover:text-blue-600 transition-colors">{selectedItem.data.user.first_name}</p>
-                                                {selectedItem.data.user.phone_number && (
-                                                    <p className="text-[11px] font-medium text-gray-400 mt-1">{selectedItem.data.user.phone_number}</p>
-                                                )}
+                                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight leading-none mb-1">Добавил</p>
+                                                <p className="text-sm font-bold text-gray-900 leading-tight group-hover:text-blue-600 transition-colors">{selectedItem.data.user.first_name}</p>
                                             </div>
                                         </div>
-                                        <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
-                                            <ChevronRight size={16} />
+                                        <div className="w-7 h-7 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
+                                            <ChevronRight size={14} />
                                         </div>
                                     </Link>
                                 )}
 
                                 {selectedItem.data.created_at && (
-                                    <div className="flex items-center gap-3 pt-4 border-t border-gray-100/50">
-                                        <div className="w-12 h-12 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 shadow-sm">
-                                            <CalendarIcon size={20} />
+                                    <div className="flex items-center gap-3 pt-3 border-t border-gray-100/50">
+                                        <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 shadow-sm">
+                                            <CalendarIcon size={18} />
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight leading-none mb-1">Создано</p>
-                                            <p className="text-[15px] font-bold text-gray-900 leading-none">
+                                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight leading-none mb-1">Создано</p>
+                                            <p className="text-sm font-bold text-gray-900 leading-none">
                                                 {new Date(selectedItem.data.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
                                             </p>
                                         </div>
@@ -544,7 +517,7 @@ export default function CalendarPage() {
 
                             <button
                                 onClick={() => setSelectedItem(null)}
-                                className="w-full h-14 bg-[hsl(218.73deg,88.73%,58.24%)] text-white rounded-[22px] font-medium text-[15px] shadow-lg shadow-[hsla(218.73deg,88.73%,58.24%,0.4)] active:scale-95 transition-all flex items-center justify-center"
+                                className="w-full h-12 bg-[hsl(218.73deg,88.73%,58.24%)] text-white rounded-[18px] font-medium text-sm shadow-lg shadow-[hsla(218.73deg,88.73%,58.24%,0.4)] active:scale-95 transition-all flex items-center justify-center"
                             >
                                 Понятно
                             </button>

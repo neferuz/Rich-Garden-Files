@@ -10,8 +10,12 @@ def get_employee(db: Session, employee_id: int):
 def get_by_telegram_id(db: Session, telegram_id: int):
     return db.query(models.Employee).filter(models.Employee.telegram_id == telegram_id).first()
 
-def create_employee(db: Session, employee: schemas.EmployeeCreate):
-    db_employee = models.Employee(**employee.dict())
+def create_employee(db: Session, employee: schemas.EmployeeCreate, photo_url: str = None):
+    data = employee.dict()
+    if photo_url:
+        data['photo_url'] = photo_url
+        
+    db_employee = models.Employee(**data)
     db.add(db_employee)
     db.commit()
     db.refresh(db_employee)

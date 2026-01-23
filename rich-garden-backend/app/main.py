@@ -15,6 +15,7 @@ from app.employees import models as employee_models
 from app.employees import models as employee_models
 from app.stories import models as story_models
 from app.banners import models as banner_models
+from app.wow_effects import models as wow_effects_models
 
 # Import routers
 from app.products import router as products_router
@@ -28,6 +29,8 @@ from app.employees import router as employees_router
 from app.employees import router as employees_router
 from app.stories import router as stories_router
 from app.banners import router as banners_router
+from app.payments import router as payments_router
+from app.wow_effects import router as wow_effects_router
 
 from app.products import repository as product_repo # for seed
 
@@ -42,8 +45,10 @@ database.Base.metadata.create_all(bind=database.engine)
 origins = [
     "http://localhost:3000",
     "http://localhost:3001",
+    "http://localhost:3002",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:3001",
+    "http://127.0.0.1:3002",
 ]
 
 app.add_middleware(
@@ -81,6 +86,8 @@ app.include_router(employees_router.router, prefix="/api")
 app.include_router(employees_router.router, prefix="/api")
 app.include_router(stories_router.router) # Prefix /api/stories is inside router
 app.include_router(banners_router.router, prefix="/api")
+app.include_router(payments_router.router, prefix="/api")
+app.include_router(wow_effects_router.router, prefix="/api")
 
 # Users router is complex.
 from app.users import router as users_module

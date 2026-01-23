@@ -19,24 +19,36 @@ export default function OrdersPage() {
     const router = useRouter()
 
     useEffect(() => {
-        let telegramId = 12345; // Default for dev
-        if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
+        if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.initDataUnsafe?.user) {
             const tg = (window as any).Telegram.WebApp;
-            if (tg.initDataUnsafe?.user?.id) {
-                telegramId = tg.initDataUnsafe.user.id;
-            }
-        }
+            const userId = tg.initDataUnsafe?.user?.id;
 
-        api.getUserOrders(telegramId).then(data => {
+            if (userId) {
+                fetchOrders(userId)
+            } else {
+                setLoading(false)
+            }
+        } else if (process.env.NODE_ENV === 'development') {
+            // Mock user for local testing
+            const mockUserId = 12345678;
+            fetchOrders(mockUserId)
+        } else {
+            setLoading(false)
+        }
+    }, [])
+
+    const fetchOrders = (userId: number) => {
+        api.getUserOrders(userId).then(data => {
             setOrders(data)
             setLoading(false)
         }).catch(err => {
             console.error(err)
             setLoading(false)
         })
-    }, [])
+    }
 
-    const activeOrders = orders.filter(o => ['new', 'processing', 'shipping'].includes(o.status))
+    const activeOrders = orders.filter(o => ['new', 'processing', 'shipping', 'pending_payment'].includes(o.status))
+
     const historyOrders = orders.filter(o => ['done', 'cancelled'].includes(o.status))
 
     const currentOrders = activeTab === 'active' ? activeOrders : historyOrders
@@ -44,10 +56,12 @@ export default function OrdersPage() {
     const getStatusInfo = (status: string) => {
         switch (status) {
             case 'new': return { label: 'новый', color: 'text-blue-500', bg: 'bg-blue-50', icon: Clock }
+            case 'pending_payment': return { label: 'ожидает оплаты', color: 'text-orange-500', bg: 'bg-orange-50', icon: CreditCard }
             case 'processing': return { label: 'собираем', color: 'text-amber-500', bg: 'bg-amber-50', icon: Package }
             case 'shipping': return { label: 'в пути', color: 'text-purple-500', bg: 'bg-purple-50', icon: Truck }
             case 'done': return { label: 'получен', color: 'text-green-500', bg: 'bg-green-50', icon: CheckCircle }
             case 'cancelled': return { label: 'отменен', color: 'text-red-500', bg: 'bg-red-50', icon: XCircle }
+            case 'paid': return { label: 'оплачен', color: 'text-emerald-600', bg: 'bg-emerald-50', icon: CheckCircle }
             default: return { label: status, color: 'text-gray-500', bg: 'bg-gray-50', icon: Clock }
         }
     }

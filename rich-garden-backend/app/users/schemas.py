@@ -20,11 +20,12 @@ class Address(AddressBase):
         orm_mode = True
 
 class TelegramUserBase(BaseModel):
-    telegram_id: int
+    telegram_id: Optional[int] = None
     first_name: str
     username: Optional[str] = None
     photo_url: Optional[str] = None
     phone_number: Optional[str] = None
+    birth_date: Optional[str] = None
 
 class TelegramUserCreate(TelegramUserBase):
     pass
@@ -57,3 +58,7 @@ class RecentlyViewed(RecentlyViewedBase):
     
     class Config:
         orm_mode = True
+
+class BroadcastRequest(BaseModel):
+    text: str
+    filter_type: Optional[str] = "all"

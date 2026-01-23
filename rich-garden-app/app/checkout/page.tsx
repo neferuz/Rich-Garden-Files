@@ -1,13 +1,28 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, MapPin, ChevronRight, MessageSquareText, Wallet, CreditCard, Banknote, Check, X, Home, Building2, AlignLeft, Gift, PenLine, Music, Smile, PartyPopper, ShoppingBag, Heart, Sparkles, Box } from 'lucide-react'
+import { ChevronLeft, MapPin, ChevronRight, MessageSquareText, Wallet, CreditCard, Banknote, Check, X, Home, Building2, AlignLeft, Gift, PenLine, Music, Smile, PartyPopper, ShoppingBag, Heart, Sparkles, Box, User, Zap, Package, Pen } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import { api, type Address } from '@/lib/api'
 import { useCart } from '@/context/CartContext'
 import Link from 'next/link'
+import { toast } from 'sonner'
+
+const ICON_MAP: Record<string, any> = {
+    music: Music,
+    user: User,
+    zap: Zap,
+    sparkles: Sparkles,
+    smile: Smile,
+    package: Package,
+    pen: Pen
+}
+
+const formatPrice = (price: number) => {
+    return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
 
 export default function CheckoutPage() {
     const router = useRouter()
@@ -20,34 +35,72 @@ export default function CheckoutPage() {
     const [isSaving, setIsSaving] = useState(false)
     const [tempAddress, setTempAddress] = useState({ title: 'Дом', street: '', details: '' })
 
-    // User ID (Mock for now)
-    const USER_ID = 12345;
-
-    useEffect(() => {
-        // Fetch saved addresses
-        api.getAddresses(USER_ID).then(data => {
-            setSavedAddresses(data)
-        })
-    }, [])
-
-    // Add-on states
-    const [postcard, setPostcard] = useState({ active: false, text: '' })
-    const [wowEffect, setWowEffect] = useState('')
-    const [selectedExtras, setSelectedExtras] = useState<string[]>([])
-    const [isOrderPlaced, setIsOrderPlaced] = useState(false)
-    const [isPlacingOrder, setIsPlacingOrder] = useState(false)
-
-    const { cartItems, totalPrice, clearCart, isLoaded } = useCart()
     const [telegramUser, setTelegramUser] = useState<any>(null)
 
-    // Telegram Auth Check
     useEffect(() => {
         if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
             const tg = (window as any).Telegram.WebApp;
             const user = tg.initDataUnsafe?.user;
-            if (user) setTelegramUser(user);
+            if (user) {
+                setTelegramUser(user);
+                api.authTelegram({
+                    telegram_id: user.id,
+                    first_name: user.first_name,
+                    username: user.username,
+                    photo_url: user.photo_url,
+                    phone_number: (user as any).phone_number
+                } as any).catch(console.error);
+            }
+        } else if (process.env.NODE_ENV === 'development') {
+            // Mock user for local testing
+            const mockUser = { id: 12345678, first_name: 'Local Test' };
+            setTelegramUser(mockUser);
+            api.authTelegram({
+                telegram_id: mockUser.id,
+                first_name: mockUser.first_name,
+            } as any).catch(console.error);
         }
     }, [])
+
+    useEffect(() => {
+        if (telegramUser?.id) {
+            api.getAddresses(telegramUser.id).then(data => {
+                setSavedAddresses(data)
+            })
+        }
+    }, [telegramUser])
+
+    // Add-on states
+    const [postcard, setPostcard] = useState({ active: false, text: '' })
+    const [wowEffect, setWowEffect] = useState<any>(null)
+    const [wowOptions, setWowOptions] = useState<any[]>([])
+    const [extraOptions, setExtraOptions] = useState<any[]>([])
+    const [postcardItem, setPostcardItem] = useState<any>(null)
+    const [selectedExtras, setSelectedExtras] = useState<number[]>([]) // IDs of selected extras
+    const [isOrderPlaced, setIsOrderPlaced] = useState(false)
+    const [isPlacingOrder, setIsPlacingOrder] = useState(false)
+
+    useEffect(() => {
+        api.getWowEffects().then(effects => {
+            const active = effects.filter(e => e.is_active)
+            setWowOptions(active.filter(e => e.category === 'wow'))
+            setExtraOptions(active.filter(e => e.category === 'extra'))
+            setPostcardItem(active.find(e => e.category === 'postcard'))
+        })
+    }, [])
+
+    const { cartItems, totalPrice: basePrice, clearCart, isLoaded } = useCart()
+
+    const totalPrice = useMemo(() => {
+        const wowPrice = wowEffect ? Number(wowEffect.price) : 0
+        const postcardPrice = postcard.active ? Number(postcardItem?.price ?? 10000) : 0
+        const extrasPrice = selectedExtras.reduce((sum, id) => {
+            const item = extraOptions.find(e => Number(e.id) === Number(id))
+            return sum + (item ? Number(item.price) : 0)
+        }, 0)
+
+        return basePrice + wowPrice + postcardPrice + extrasPrice
+    }, [basePrice, wowEffect, postcard.active, postcardItem, selectedExtras, extraOptions])
 
     // Redirect if empty
     useEffect(() => {
@@ -87,7 +140,7 @@ export default function CheckoutPage() {
                 customer_name: telegramUser?.first_name || 'Гость',
                 customer_phone: telegramUser?.phone_number || 'Уточнить',
                 total_price: totalPrice,
-                telegram_id: telegramUser?.id || 12345,
+                telegram_id: telegramUser?.id,
                 address: address ? `${address.title}: ${address.street}${address.details ? `, ${address.details}` : ''}` : undefined,
                 comment: postcard.active ? postcard.text : undefined,
                 payment_method: paymentMethod,
@@ -101,7 +154,26 @@ export default function CheckoutPage() {
                 })))
             }
 
-            await api.createOrder(orderData)
+            const createdOrder = await api.createOrder(orderData)
+
+            if (paymentMethod === 'click' || paymentMethod === 'payme') {
+                const returnUrl = typeof window !== 'undefined' ? `${window.location.origin}/orders` : 'http://localhost:3000/orders';
+                const invoice = paymentMethod === 'click'
+                    ? await api.createClickInvoice(createdOrder.id, totalPrice, returnUrl)
+                    : await api.createPaymeInvoice(createdOrder.id, totalPrice, returnUrl);
+
+                if (invoice && (invoice.payment_url || invoice.url)) {
+                    clearCart();
+                    window.location.href = invoice.payment_url || invoice.url;
+                    return;
+                } else {
+                    const errorMsg = invoice?.error || `Ошибка создания счета ${paymentMethod}. Попробуйте позже или выберите другой способ оплаты.`;
+                    await api.deleteOrder(createdOrder.id);
+                    alert(errorMsg);
+                    setIsPlacingOrder(false);
+                    return;
+                }
+            }
 
             setIsPlacingOrder(false)
             setIsOrderPlaced(true)
@@ -131,18 +203,8 @@ export default function CheckoutPage() {
         { id: 'cash', name: 'Наличные', icon: <Banknote size={26} />, color: 'text-green-600', bg: 'bg-green-50' },
         { id: 'click', name: 'Click', icon: <span className="font-black text-[18px] tracking-tighter">Cl</span>, color: 'text-blue-600', bg: 'bg-blue-50' },
         { id: 'payme', name: 'Payme', icon: <span className="font-black text-[18px] tracking-tighter">Pa</span>, color: 'text-teal-600', bg: 'bg-teal-50' },
-        { id: 'uzum', name: 'Uzum', icon: <span className="font-black text-[18px] tracking-tighter">Uz</span>, color: 'text-violet-600', bg: 'bg-violet-50' },
     ]
 
-    const wowOptions = [
-        { id: 'violin', name: 'Скрипач', icon: <Music size={20} /> },
-        { id: 'brutal', name: 'Брутальный мужчина', icon: <img src="https://em-content.zobj.net/source/apple/391/person-in-tuxedo_1f935.png" alt="" className="w-5 h-5 grayscale" /> },
-    ]
-
-    const toyOptions = [
-        { id: 'bear', name: 'Мишка Тедди', price: '250 000' },
-        { id: 'bunny', name: 'Зайка', price: '180 000' },
-    ]
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -158,25 +220,49 @@ export default function CheckoutPage() {
     }
 
     const handleSaveAddress = async () => {
-        if (!tempAddress.street) return
+        if (!tempAddress.street) {
+            alert("Пожалуйста, введите адрес")
+            return
+        }
+
+        if (!telegramUser?.id) {
+            console.warn("Telegram user not found, using address locally")
+            setIsSaving(true)
+            setTimeout(() => {
+                setAddress(tempAddress)
+                setIsSaving(false)
+                setIsAddingAddress(false)
+            }, 600)
+            return
+        }
+
         setIsSaving(true)
 
         try {
-            const newAddr = await api.createAddress(USER_ID, {
+            const newAddr = await api.createAddress(telegramUser.id, {
                 title: tempAddress.title,
                 address: tempAddress.street,
                 info: tempAddress.details
             })
 
             if (newAddr) {
-                setSavedAddresses(prev => [...prev, newAddr])
+                console.log("Address saved successfully:", newAddr)
+                setSavedAddresses(prev => {
+                    const exists = prev.find(a => a.id === newAddr.id)
+                    if (exists) return prev
+                    return [...prev, newAddr]
+                })
                 setAddress({ title: newAddr.title, street: newAddr.address, details: newAddr.info })
+                toast.success("Адрес сохранен")
             } else {
+                console.error("Failed to save address to DB (empty response)")
                 setAddress(tempAddress)
+                alert("Ошибка: Не удалось сохранить адрес в базе")
             }
-        } catch (e) {
-            console.error(e)
+        } catch (e: any) {
+            console.error("Address save error:", e)
             setAddress(tempAddress)
+            alert(`Ошибка при сохранении: ${e.message || "Неизвестная ошибка"}`)
         }
 
         setTimeout(() => {
@@ -185,13 +271,6 @@ export default function CheckoutPage() {
         }, 500)
     }
 
-    const toggleExtra = (id: string) => {
-        if (selectedExtras.includes(id)) {
-            setSelectedExtras(selectedExtras.filter(e => e !== id))
-        } else {
-            setSelectedExtras([...selectedExtras, id])
-        }
-    }
 
     return (
         <div className="min-h-screen bg-[#F5F5F7] pb-44 font-sans selection:bg-black selection:text-white">
@@ -419,8 +498,11 @@ export default function CheckoutPage() {
                                     <PenLine size={24} strokeWidth={1.5} className={postcard.active ? 'text-white' : 'text-black'} />
                                 </div>
                                 <div className="flex-1 text-left">
-                                    <h3 className={`text-[16px] font-bold leading-tight ${postcard.active ? 'text-white' : 'text-black'}`}>Открытка</h3>
-                                    <p className={`text-[13px] font-medium ${postcard.active ? 'text-white/60' : 'text-gray-500'}`}>Напишите теплые слова</p>
+                                    <div className="flex justify-between items-center">
+                                        <h3 className={`text-[16px] font-bold leading-tight ${postcard.active ? 'text-white' : 'text-black'}`}>{postcardItem?.name ?? 'Открытка'}</h3>
+                                        <span className={`text-[13px] font-bold ${postcard.active ? 'text-white/80' : 'text-black/60'}`}>{formatPrice(postcardItem?.price ?? 10000)} сум</span>
+                                    </div>
+                                    <p className={`text-[13px] font-medium ${postcard.active ? 'text-white/60' : 'text-gray-500'}`}>{postcardItem?.description ?? 'Напишите теплые слова'}</p>
                                 </div>
                                 {postcard.active && <Check size={20} className="text-white" />}
                             </button>
@@ -446,61 +528,94 @@ export default function CheckoutPage() {
                         {/* Wow Effect */}
                         <div className="p-2">
                             <h4 className="px-2 mb-3 text-[13px] font-bold text-gray-500 uppercase tracking-wider">Вау эффект</h4>
-                            <div className="flex gap-2 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
-                                {wowOptions.map(option => (
-                                    <button
-                                        key={option.id}
-                                        onClick={() => setWowEffect(wowEffect === option.id ? '' : option.id)}
-                                        className={`flex-shrink-0 relative pl-3 pr-5 py-3 rounded-[24px] border transition-all flex items-center gap-3 ${wowEffect === option.id
-                                            ? 'bg-black border-black text-white shadow-lg'
-                                            : 'bg-white border-gray-100 text-black shadow-sm'
-                                            }`}
-                                    >
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${wowEffect === option.id ? 'bg-white/20' : 'bg-gray-100'
-                                            }`}>
-                                            {option.icon}
-                                        </div>
-                                        <span className={`font-bold text-[14px] whitespace-nowrap ${wowEffect === option.id ? 'text-white' : 'text-black'}`}>{option.name}</span>
-                                    </button>
-                                ))}
+                            <div className="flex flex-col gap-2">
+                                {wowOptions.map(option => {
+                                    const IconComp = ICON_MAP[option.icon] || Zap
+                                    const isSelected = wowEffect?.id === option.id
+                                    return (
+                                        <button
+                                            key={option.id}
+                                            onClick={() => setWowEffect(isSelected ? null : option)}
+                                            className={`relative pl-3 pr-5 py-3.5 rounded-[24px] border transition-all flex flex-col gap-2 ${isSelected
+                                                ? 'bg-black border-black text-white shadow-lg'
+                                                : 'bg-white border-gray-100 text-black shadow-sm'
+                                                }`}
+                                        >
+                                            <div className="flex items-center gap-3 w-full">
+                                                <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isSelected ? 'bg-white/20' : 'bg-gray-100'
+                                                    }`}>
+                                                    <IconComp size={19} className={isSelected ? 'text-white' : 'text-orange-500'} />
+                                                </div>
+                                                <div className="flex-1 min-w-0 flex justify-between items-center text-left">
+                                                    <span className={`font-bold text-[15px] truncate ${isSelected ? 'text-white' : 'text-black'}`}>{option.name}</span>
+                                                    <span className={`text-[13px] font-bold shrink-0 ${isSelected ? 'text-white/80' : 'text-black/60'}`}>{formatPrice(option.price)} сум</span>
+                                                </div>
+                                            </div>
+                                            <AnimatePresence>
+                                                {isSelected && option.description && (
+                                                    <motion.div
+                                                        initial={{ height: 0, opacity: 0 }}
+                                                        animate={{ height: 'auto', opacity: 1 }}
+                                                        exit={{ height: 0, opacity: 0 }}
+                                                        className="px-1 text-left"
+                                                    >
+                                                        <p className="text-[12px] font-medium text-white/70 leading-relaxed pb-1">
+                                                            {option.description}
+                                                        </p>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </button>
+                                    )
+                                })}
                             </div>
                         </div>
 
-                        {/* Extra Items (Balloons, Toys) */}
+                        {/* Extra Items (Balloons, Toys from DB) */}
                         <div className="p-2 pt-0">
                             <h4 className="px-2 mb-3 text-[13px] font-bold text-gray-500 uppercase tracking-wider">К подарку</h4>
-                            <div className="space-y-2">
-                                <button
-                                    onClick={() => toggleExtra('balloons')}
-                                    className={`w-full p-3 rounded-[24px] flex items-center gap-4 transition-all ${selectedExtras.includes('balloons') ? 'bg-[#FFF8F2] ring-2 ring-[#FF8A00]/20' : 'bg-[#F9F9F9]'}`}
-                                >
-                                    <div className="w-10 h-10 rounded-[18px] bg-white flex items-center justify-center shadow-sm text-[#FF8A00]">
-                                        <PartyPopper size={20} />
-                                    </div>
-                                    <span className="flex-1 text-left font-bold text-black text-[15px]">Шары (5 шт)</span>
-                                    {selectedExtras.includes('balloons') && <Check size={20} className="text-[#FF8A00]" />}
-                                </button>
-
-                                <div className="grid grid-cols-2 gap-2">
-                                    {toyOptions.map(toy => (
+                            <div className="flex flex-col gap-2">
+                                {extraOptions.map(option => {
+                                    const IconComp = ICON_MAP[option.icon] || Smile
+                                    const isSelected = selectedExtras.includes(option.id)
+                                    return (
                                         <button
-                                            key={toy.id}
-                                            onClick={() => toggleExtra(toy.id)}
-                                            className={`p-3 rounded-[24px] flex flex-col items-start gap-2 transition-all ${selectedExtras.includes(toy.id) ? 'bg-[#F2F8FF] ring-2 ring-blue-500/20' : 'bg-[#F9F9F9]'}`}
+                                            key={option.id}
+                                            onClick={() => {
+                                                if (isSelected) setSelectedExtras(selectedExtras.filter(id => id !== option.id))
+                                                else setSelectedExtras([...selectedExtras, option.id])
+                                            }}
+                                            className={`w-full p-3 rounded-[24px] flex flex-col gap-2 transition-all ${isSelected ? 'bg-[#F2F8FF] ring-2 ring-blue-500/20 shadow-sm' : 'bg-[#F9F9F9]'}`}
                                         >
-                                            <div className="w-full flex justify-between items-start">
-                                                <div className="w-10 h-10 rounded-[18px] bg-white flex items-center justify-center shadow-sm text-blue-500">
-                                                    <Smile size={20} />
+                                            <div className="flex items-center gap-4 w-full">
+                                                <div className={`w-10 h-10 rounded-[18px] bg-white flex items-center justify-center shadow-sm shrink-0 ${isSelected ? 'text-blue-500' : 'text-gray-400'}`}>
+                                                    <IconComp size={20} />
                                                 </div>
-                                                {selectedExtras.includes(toy.id) && <Check size={18} className="text-blue-500" />}
+                                                <div className="flex-1 flex justify-between items-center text-left">
+                                                    <span className="font-bold text-black text-[15px]">{option.name}</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[13px] font-bold text-black/60">{formatPrice(option.price)} сум</span>
+                                                        {isSelected && <Check size={18} className="text-blue-500" />}
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <h5 className="font-bold text-black text-[14px] leading-tight">{toy.name}</h5>
-                                                <p className="text-[12px] font-medium text-gray-500 mt-0.5">{toy.price}</p>
-                                            </div>
+                                            <AnimatePresence>
+                                                {isSelected && option.description && (
+                                                    <motion.div
+                                                        initial={{ height: 0, opacity: 0 }}
+                                                        animate={{ height: 'auto', opacity: 1 }}
+                                                        exit={{ height: 0, opacity: 0 }}
+                                                        className="px-1 text-left"
+                                                    >
+                                                        <p className="text-[12px] font-medium text-gray-400 leading-relaxed pb-1">
+                                                            {option.description}
+                                                        </p>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
                                         </button>
-                                    ))}
-                                </div>
+                                    )
+                                })}
                             </div>
                         </div>
                     </div>
@@ -568,7 +683,7 @@ export default function CheckoutPage() {
                         <>
                             <div className="flex flex-col items-start justify-center space-y-0.5">
                                 <span className="text-white/50 text-[12px] font-bold uppercase tracking-wider">итого</span>
-                                <span className="text-white font-bold text-[20px] tracking-tight">{totalPrice.toLocaleString()} сум</span>
+                                <span className="text-white font-bold text-[20px] tracking-tight">{formatPrice(totalPrice)} сум</span>
                             </div>
                             <div className="h-[56px] px-8 bg-white rounded-[22px] flex items-center justify-center gap-2 group hover:bg-gray-50 transition-colors disabled:opacity-50">
                                 <span className="text-black font-bold text-[16px]">

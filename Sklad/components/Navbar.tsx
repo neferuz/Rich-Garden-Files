@@ -1,6 +1,6 @@
 "use client"
 
-import { Bell, BellOff, BellRing, Info } from "lucide-react"
+import { Bell, BellOff, BellRing, Info, Send } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -34,7 +34,11 @@ export default function Navbar() {
     pathname?.startsWith("/flowers") ||
     pathname?.startsWith("/tasks") ||
     pathname?.startsWith("/calendar") ||
-    pathname?.startsWith("/settings")
+    pathname?.startsWith("/settings") ||
+    pathname?.startsWith("/pos") ||
+    pathname?.startsWith("/stories") ||
+    pathname?.startsWith("/banners") ||
+    pathname?.startsWith("/wow-effects")
   ) {
     return null
   }
@@ -48,7 +52,7 @@ export default function Navbar() {
             "Пользователь"
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-40 bg-white/80 backdrop-blur-md border-b border-white/20 shadow-sm transition-all duration-300">
+    <nav className="fixed top-0 left-0 right-0 z-40 bg-white/80 backdrop-blur-md border-b border-white/20 shadow-sm transition-all duration-300" style={{ paddingTop: 'var(--tg-content-safe-area-top)' }}>
       <div className="container mx-auto flex h-16 items-center justify-between px-6">
         {/* Профиль пользователя слева */}
         <DropdownMenu>
@@ -82,6 +86,16 @@ export default function Navbar() {
 
         {/* Иконки справа */}
         <div className="flex items-center gap-2">
+
+          {/* Broadcast Icon - Only for Admin/Owner */}
+          {(employee?.role === 'admin' || employee?.role === 'owner') && (
+            <Link href="/clients/broadcast">
+              <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full text-gray-500 hover:text-black hover:bg-white/50 transition-all duration-300">
+                <Send className="h-5 w-5" strokeWidth={1.5} />
+              </Button>
+            </Link>
+          )}
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full text-gray-500 hover:text-black hover:bg-white/50 transition-all duration-300 group">

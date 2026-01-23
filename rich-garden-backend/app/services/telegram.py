@@ -5,7 +5,7 @@ import json
 import html
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_GROUP_ID = os.getenv("TELEGRAM_GROUP_ID")
@@ -251,3 +251,125 @@ async def update_order_status_message(message_id: int, order: dict, items_detail
         except Exception as e:
             print(f"Failed to edit telegram message: {e}")
 
+async def send_broadcast_message(telegram_id: int, text: str):
+    if not TELEGRAM_BOT_TOKEN:
+        print("Telegram token not set")
+        return False
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(url, json={
+                "chat_id": telegram_id,
+                "text": text,
+                "parse_mode": "HTML"
+            })
+            if response.status_code == 200:
+                return True
+            else:
+                print(f"Failed to send to {telegram_id}: {response.text}")
+                return False
+        except Exception as e:
+            print(f"Error sending to {telegram_id}: {e}")
+            return False
+
+async def get_chat_photo(telegram_id: int):
+    """
+    Fetches the profile photo of a Telegram user.
+    """
+    if not TELEGRAM_BOT_TOKEN:
+        return None
+
+    try:
+        async with httpx.AsyncClient() as client:
+            # 1. Get user profile photos
+            photos_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUserProfilePhotos"
+            resp = await client.post(photos_url, json={"user_id": telegram_id, "limit": 1})
+            
+            if resp.status_code != 200:
+                print(f"Failed to get photos for {telegram_id}: {resp.text}")
+                return None
+            
+            data = resp.json()
+            if not data.get("ok") or data["result"]["total_count"] == 0:
+                return None
+            
+            # Get the largest photo (last in the array)
+            file_id = data["result"]["photos"][0][-1]["file_id"]
+            
+            # 2. Get file path
+            file_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getFile"
+            file_resp = await client.post(file_url, json={"file_id": file_id})
+            
+            if file_resp.status_code != 200:
+                return None
+                
+            file_data = file_resp.json()
+            if not file_data.get("ok"):
+                return None
+                
+            file_path = file_data["result"]["file_path"]
+            
+            # 3. Construct final download URL
+            return f"https://api.telegram.org/file/bot{TELEGRAM_BOT_TOKEN}/{file_path}"
+            
+    except Exception as e:
+        print(f"Error fetching telegram photo: {e}")
+        return None
+
+async def send_customer_receipt(telegram_id: int, order: dict, items_detail: str):
+    if not TELEGRAM_BOT_TOKEN or not telegram_id:
+        return False
+        
+    # User-friendly formatting
+    customer_name = escape_html(order['customer_name'] or 'Клиент')
+    total_formatted = format_number(order['total_price'])
+    safe_items = escape_html(items_detail)
+    address = escape_html(order.get('address') or 'Самовывоз')
+    
+    # Emojis for status
+    status_emoji = "✅" 
+    
+    message = (
+        f"<b>🎉 Спасибо за заказ, {customer_name}!</b>\n\n"
+        f"Ваш заказ <b>#{order['id']}</b> принят и передан в работу.\n\n"
+        f"📋 <b>Состав заказа:</b>\n{safe_items}\n"
+        f"📍 <b>Адрес:</b> {address}\n"
+        f"💰 <b>Сумма:</b> {total_formatted} сум\n\n"
+        f"Мы оповестим вас об изменении статуса!"
+    )
+    
+    # Button to open Mini App
+    # Using a placeholder URL that redirects to localhost for dev purposes
+    # Since Telegram requires HTTPS for web_app, I will use a generic placeholder or try standard url button if localhost.
+    # The user asked for `http://localhost:3000/orders`. 
+    # Telegram web app buttons MUST be HTTPS. 
+    # I will put a placeholder https link: `https://rich-garden-app.vercel.app/orders`
+    # and a note.
+    
+    keyboard = {
+        "inline_keyboard": [
+            [
+                {
+                    "text": "🛍 Мои заказы",
+                    "web_app": { "url": "https://rich-garden-app.vercel.app/orders" }
+                }
+            ]
+        ]
+    }
+    
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            await client.post(url, json={
+                "chat_id": telegram_id,
+                "text": message,
+                "parse_mode": "HTML",
+                "reply_markup": keyboard
+            })
+            return True
+        except Exception as e:
+            print(f"Failed to send receipt to {telegram_id}: {e}")
+            return False

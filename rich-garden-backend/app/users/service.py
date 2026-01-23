@@ -8,6 +8,9 @@ from app.products import models as product_models # for type hinting or access
 def auth_telegram(db: Session, user: schemas.TelegramUserCreate):
     return repository.create_or_update_telegram_user(db, user)
 
+def create_offline_client(db: Session, client: schemas.TelegramUserCreate):
+    return repository.create_offline_user(db, client)
+
 def get_clients(db: Session):
     users = repository.get_all_clients(db)
     # Compute stats
@@ -61,8 +64,48 @@ def get_user_orders(db: Session, telegram_id: int):
     # Sort orders by created_at desc
     return sorted(user.orders, key=lambda x: x.created_at, reverse=True)
 
-def delete_user(db: Session, user_id: int):
-    success = repository.delete_user(db, user_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="User not found")
+def get_client_orders(db: Session, client_id: int):
+    user = repository.get_by_id(db, client_id)
+    if not user:
+        return []
+    return sorted(user.orders, key=lambda x: x.created_at, reverse=True)
+
     return {"message": "User deleted successfully"}
+
+async def send_broadcast(db: Session, text: str, filter_type: str = "all"):
+    from app.services import telegram
+    
+    # helper query
+    users = repository.get_all_clients(db)
+    target_users = []
+    
+    for u in users:
+        # Skip if no telegram_id (offline user)
+        if not u.telegram_id:
+            continue
+            
+        if filter_type == "all":
+            target_users.append(u)
+        elif filter_type == "purchased":
+            # Check if user has orders
+            if u.orders and len(u.orders) > 0:
+                target_users.append(u)
+        elif filter_type == "leads":
+             if not u.orders or len(u.orders) == 0:
+                target_users.append(u)
+
+    success_count = 0
+    fail_count = 0
+    
+    for user in target_users:
+        res = await telegram.send_broadcast_message(user.telegram_id, text)
+        if res:
+            success_count += 1
+        else:
+            fail_count += 1
+            
+    return {
+        "total": len(target_users),
+        "success": success_count,
+        "failed": fail_count
+    }
