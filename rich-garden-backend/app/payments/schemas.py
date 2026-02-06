@@ -4,7 +4,9 @@ from typing import Optional, Union
 class ClickInvoiceCreate(BaseModel):
     order_id: Union[int, str]
     amount: int
-    return_url: str # Where to redirect user callback in browser
+    return_url: str  # Where to redirect user callback in browser
+    phone_number: Optional[str] = None  # Явная передача номера (из профиля/бота)
+    telegram_id: Optional[int] = None   # Текущий пользователь Telegram — берём телефон из БД по нему
 
 class ClickCallback(BaseModel):
     click_trans_id: int
@@ -25,3 +27,9 @@ class ClickResponse(BaseModel):
     merchant_confirm_id: Optional[int] = None
     error: int
     error_note: str
+
+
+class PaymeReceiptCreate(BaseModel):
+    """Subscribe API: создание чека для Mini App."""
+    order_id: Union[int, str]
+    phone_number: Optional[str] = None  # для receipts.send; если нет — берём из заказа

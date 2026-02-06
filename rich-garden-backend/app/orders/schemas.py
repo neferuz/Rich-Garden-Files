@@ -10,7 +10,7 @@ class TelegramUserMinimal(BaseModel):
     photo_url: Optional[str] = None
     phone_number: Optional[str] = None
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class OrderBase(BaseModel):
     user_id: Optional[int] = None
@@ -36,4 +36,4 @@ class Order(OrderBase):
     id: int
     user: Optional[TelegramUserMinimal] = None
     class Config:
-        orm_mode = True
+        from_attributes = True

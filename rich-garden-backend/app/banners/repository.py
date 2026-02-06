@@ -22,9 +22,18 @@ def update(db: Session, banner_id: int, banner_data: schemas.BannerUpdate):
     if not db_banner:
         return None
     
-    update_data = banner_data.model_dump(exclude_unset=True)
+    # Get all fields including None values (for deletion)
+    update_data = banner_data.model_dump(exclude_unset=True, exclude_none=False)
+    
+    # Special handling for image_url: if explicitly set to None, delete it
+    if 'image_url' in update_data:
+        db_banner.image_url = update_data['image_url']
+        del update_data['image_url']
+    
+    # Update other fields (excluding None values)
     for key, value in update_data.items():
-        setattr(db_banner, key, value)
+        if value is not None:
+            setattr(db_banner, key, value)
     
     db.commit()
     db.refresh(db_banner)

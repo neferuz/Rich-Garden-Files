@@ -54,7 +54,8 @@ export default function FinancePage() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [expenses, orders] = await Promise.all([api.getExpenses(), api.getOrders()])
+                // Для финансов — только оплаченные заказы (бэкенд отдаёт по ?status=paid)
+                const [expenses, orders] = await Promise.all([api.getExpenses(), api.getOrdersPaidOnly()])
 
                 let totalIncome = 0
                 let totalExpense = 0
@@ -74,8 +75,9 @@ export default function FinancePage() {
                     }
                 })
 
-                const incomeItems = orders.map(order => {
-                    const total = order.total || 0;
+                // orders уже только оплаченные (getOrdersPaidOnly)
+                const incomeItems = orders.map((order: { id: string; client: string; date: string; time: string; createdAt: string; total: number; paymentMethod?: string; [key: string]: any }) => {
+                    const total = order.total || 0
                     totalIncome += total
                     return {
                         id: `ord-${order.id}`,
@@ -551,6 +553,26 @@ export default function FinancePage() {
                                         </span>
                                     </div>
 
+                                    {selectedTx.type === 'income' && (
+                                        <div className="flex items-center justify-between p-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
+                                                    <Wallet size={16} />
+                                                </div>
+                                                <span className="text-sm font-medium text-gray-500">Способ оплаты</span>
+                                            </div>
+                                            <span className="text-sm font-bold text-gray-900">
+                                                {(() => {
+                                                    const pm = (selectedTx.raw?.paymentMethod || '').toString().toLowerCase()
+                                                    if (pm === 'click') return 'Click'
+                                                    if (pm === 'payme') return 'Payme'
+                                                    if (pm === 'cash') return 'Наличные'
+                                                    return pm ? 'Наличные' : '—'
+                                                })()}
+                                            </span>
+                                        </div>
+                                    )}
+
                                     {selectedTx.raw?.note && (
                                         <div className="p-4">
                                             <span className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2 block">Комментарий</span>
@@ -604,7 +626,7 @@ export default function FinancePage() {
                                                 <div key={idx} className="flex items-center gap-3">
                                                     <div className="w-12 h-12 rounded-[14px] bg-gray-50 border border-gray-100 overflow-hidden relative shrink-0">
                                                         <img
-                                                            src={item.image && item.image.startsWith('http') ? item.image : `http://localhost:8000${item.image || ''}`}
+                                                            src={item.image && item.image.startsWith('http') ? item.image : `${item.image || ''}`}
                                                             alt={item.name}
                                                             className="w-full h-full object-cover"
                                                         />

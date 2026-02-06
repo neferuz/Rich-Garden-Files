@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Search, Plus, User, ShoppingBag, X, Calendar, Phone, Check, ChevronRight, CreditCard, Wallet, Smartphone, MessageSquare, Percent } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { api, Client, Product, OrderCreate } from "@/services/api"
 // import { toast } from "sonner" // Removing sonner
-import Image from "next/image"
+// import Image from "next/image" // Removed to fix image loading issues
 import { NotificationToast } from "@/components/shared/NotificationToast"
 
 export default function POSPage() {
@@ -23,12 +24,110 @@ export default function POSPage() {
 
     // Loading States
     const [loadingProducts, setLoadingProducts] = useState(false)
+    
+    useEffect(() => {
+        // Load products
+        setLoadingProducts(true)
+        api.getProducts()
+            .then(data => {
+                setProducts(data || [])
+            })
+            .catch(err => {
+                console.error("Error loading products:", err)
+            })
+            .finally(() => {
+                setLoadingProducts(false)
+            })
+    
+        // Load clients
+        api.getClients()
+            .then(data => {
+                setClients(data || [])
+            })
+            .catch(err => {
+                console.error("Error loading clients:", err)
+            })
+    }, [])
+
+    // Hide total block when keyboard is open (input focused)
+    useEffect(() => {
+        const handleFocus = (e: FocusEvent) => {
+            const target = e.target as HTMLElement
+            if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+                // Мгновенное скрытие без задержек
+                setIsKeyboardOpen(true)
+            }
+        }
+
+        const handleBlur = () => {
+            // Delay to check if another input is focused
+            setTimeout(() => {
+                const activeElement = document.activeElement as HTMLElement
+                if (!activeElement || (activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA' && !activeElement.isContentEditable)) {
+                    setIsKeyboardOpen(false)
+                }
+            }, 150)
+        }
+
+        // Listen for viewport changes (Telegram WebApp)
+        const handleViewportChange = () => {
+            if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
+                const tg = window.Telegram.WebApp
+                const viewportHeight = tg.viewportHeight || window.innerHeight
+                const isVisible = viewportHeight < window.outerHeight * 0.75 // If viewport is significantly smaller, keyboard is likely open
+                setIsKeyboardOpen(isVisible)
+            }
+        }
+
+        // Also check on window resize (for mobile browsers)
+        const handleResize = () => {
+            if (typeof window !== 'undefined') {
+                const visualViewport = window.visualViewport
+                if (visualViewport) {
+                    const heightDiff = window.innerHeight - visualViewport.height
+                    // Более чувствительное определение - клавиатура открыта если высота уменьшилась больше чем на 100px
+                    setIsKeyboardOpen(heightDiff > 100)
+                } else {
+                    // Fallback для браузеров без visualViewport
+                    const currentHeight = window.innerHeight
+                    const initialHeight = window.screen.height
+                    setIsKeyboardOpen(currentHeight < initialHeight * 0.7)
+                }
+            }
+        }
+
+        document.addEventListener('focusin', handleFocus)
+        document.addEventListener('focusout', handleBlur)
+        window.addEventListener('resize', handleResize)
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', handleResize)
+        }
+        
+        if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
+            const tg = window.Telegram.WebApp
+            tg.onEvent('viewportChanged', handleViewportChange)
+        }
+
+        return () => {
+            document.removeEventListener('focusin', handleFocus)
+            document.removeEventListener('focusout', handleBlur)
+            window.removeEventListener('resize', handleResize)
+            if (window.visualViewport) {
+                window.visualViewport.removeEventListener('resize', handleResize)
+            }
+            if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
+                const tg = window.Telegram.WebApp
+                tg.offEvent('viewportChanged', handleViewportChange)
+            }
+        }
+    }, [])
+
     const [processing, setProcessing] = useState(false)
 
     const [isSearchOpen, setIsSearchOpen] = useState(false)
+    const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
 
     // Checkout State
-    const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
     const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'payme' | 'click'>('cash')
     const [discount, setDiscount] = useState<number | string>("")
     const [comment, setComment] = useState("")
@@ -43,29 +142,14 @@ export default function POSPage() {
         }, 3000)
     }
 
-    useEffect(() => {
-        // Initial fetch
-        api.getClients().then(setClients).catch(console.error)
-        setLoadingProducts(true)
-        api.getProducts().then(setProducts).finally(() => setLoadingProducts(false))
-    }, [])
-
-    useEffect(() => {
-        if (isCheckoutOpen) {
-            document.body.style.overflow = 'hidden'
-        } else {
-            document.body.style.overflow = 'unset'
-        }
-        return () => { document.body.style.overflow = 'unset' }
-    }, [isCheckoutOpen])
-
-    // Filtered lists
-    const filteredClients = clientQuery.length > 0
-        ? clients.filter(c => c.first_name.toLowerCase().includes(clientQuery.toLowerCase()) || c.phone_number?.includes(clientQuery))
-        : []
 
     const filteredProducts = products.filter(p =>
         p.name.toLowerCase().includes(productQuery.toLowerCase())
+    )
+
+    const filteredClients = clients.filter(c =>
+        c.first_name.toLowerCase().includes(clientQuery.toLowerCase()) ||
+        (c.phone_number && c.phone_number.includes(clientQuery))
     )
 
     const handleAddClient = async () => {
@@ -114,6 +198,8 @@ export default function POSPage() {
 
     const totalAmount = cart.reduce((sum, item) => sum + (item.product.price_raw * item.quantity), 0)
 
+    const router = useRouter()
+    
     const handleCheckout = () => {
         if (!selectedClient) {
             showNotification("Выберите клиента", "error")
@@ -123,7 +209,11 @@ export default function POSPage() {
             showNotification("Корзина пуста", "error")
             return
         }
-        setIsCheckoutOpen(true)
+        // Сохраняем данные в localStorage
+        localStorage.setItem('pos_cart', JSON.stringify(cart))
+        localStorage.setItem('pos_selected_client', JSON.stringify(selectedClient))
+        // Переходим на страницу оформления
+        router.push('/pos/checkout')
     }
 
     const handleProcessOrder = async () => {
@@ -157,7 +247,6 @@ export default function POSPage() {
             setCart([])
             setSelectedClient(null)
             setClientQuery("")
-            setIsCheckoutOpen(false)
             setDiscount("")
             setComment("")
             setPaymentMethod("cash")
@@ -168,6 +257,7 @@ export default function POSPage() {
             setProcessing(false)
         }
     }
+    
 
     return (
         <div className="min-h-screen bg-gray-50/50 pb-32">
@@ -226,8 +316,14 @@ export default function POSPage() {
                     <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Клиент</h2>
                     {!selectedClient && (
                         <button
-                            onClick={() => setIsClientModalOpen(true)}
-                            className="text-blue-600 text-[11px] font-bold flex items-center gap-1 bg-blue-50 px-3 py-1 rounded-full active:scale-95 transition-transform"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setIsClientModalOpen(true);
+                            }}
+                            className="text-blue-600 text-[11px] font-bold flex items-center gap-1 bg-blue-50 px-3 py-1 rounded-full active:scale-95 transition-transform relative z-10 cursor-pointer hover:bg-blue-100"
+                            type="button"
+                            style={{ position: 'relative', zIndex: 100 }}
                         >
                             <Plus size={12} /> Новый
                         </button>
@@ -392,7 +488,16 @@ export default function POSPage() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                    {filteredProducts.map(product => {
+                    {loadingProducts ? (
+                    <div className="col-span-2 flex items-center justify-center py-12">
+                        <div className="w-8 h-8 border-4 border-gray-300 border-t-black rounded-full animate-spin"></div>
+                    </div>
+                ) : filteredProducts.length === 0 ? (
+                    <div className="col-span-2 text-center py-12 text-gray-500">
+                        <p className="text-sm">Товары не найдены</p>
+                    </div>
+                ) : (
+                    filteredProducts.map(product => {
                         const inCart = cart.find(i => i.product.id === product.id)
                         const quantity = inCart?.quantity || 0
 
@@ -412,11 +517,14 @@ export default function POSPage() {
                                 {/* Image Area - Taller & Fuller */}
                                 <div className="h-32 w-full relative bg-gray-50 rounded-[18px] mb-2 overflow-hidden flex items-center justify-center">
                                     {product.image ? (
-                                        <Image
-                                            src={product.image.startsWith('http') ? product.image : `http://127.0.0.1:8000${product.image}`}
+                                        <img
+                                            src={product.image.startsWith('http') ? product.image : product.image}
                                             alt={product.name}
-                                            fill
-                                            className="object-contain p-2 transition-transform duration-500 group-hover:scale-110"
+                                            className="w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-110"
+                                            onError={(e) => {
+                                                const target = e.target as HTMLImageElement;
+                                                target.src = '/placeholder.png';
+                                            }}
                                         />
                                     ) : (
                                         <ShoppingBag className="text-gray-200 w-8 h-8" />
@@ -453,280 +561,128 @@ export default function POSPage() {
                                 </div>
                             </motion.div>
                         )
-                    })}
+                    })
+                )}
                 </div>
             </div>
 
-            {/* Bottom Cart Bar */}
-            <AnimatePresence>
+            {/* Итог и кнопка оформления */}
+            {cart.length > 0 && (
                 <motion.div
-                    initial={{ y: 100 }}
-                    animate={{ y: 0 }}
-                    exit={{ y: 100 }}
-                    className="fixed bottom-28 inset-x-0 mx-auto w-full max-w-[350px] z-40"
+                    initial={{ y: 100, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: 100, opacity: 0 }}
+                    className={`fixed inset-x-0 mx-auto w-full max-w-[350px] z-[60] transition-all duration-150 ease-in-out ${isKeyboardOpen ? 'opacity-0 pointer-events-none translate-y-full scale-95' : 'opacity-100 pointer-events-auto translate-y-0 scale-100'}`}
+                    style={{ bottom: 'calc(1.5rem + var(--tg-content-safe-area-bottom) + var(--tg-safe-area-bottom) + 80px)' }}
                 >
-                    <div className="bg-black text-white p-3 px-5 rounded-[32px] shadow-2xl flex items-center justify-between backdrop-blur-xl bg-black/95">
-                        <div>
-                            <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wide mb-0.5">К оплате</p>
-                            <p className="text-lg font-bold">{totalAmount.toLocaleString()} сум</p>
+                    <div className="bg-white/90 backdrop-blur-2xl border border-white/40 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] rounded-[32px] px-6 py-4 flex flex-col gap-3 ring-1 ring-black/5">
+                        {/* Итоговая сумма */}
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Итого</span>
+                            <span className="text-xl font-bold text-gray-900">
+                                {totalAmount.toLocaleString()} сум
+                            </span>
                         </div>
+                        
+                        {/* Кнопка оформления */}
                         <button
                             onClick={handleCheckout}
-                            disabled={processing || cart.length === 0}
-                            className="bg-white text-black px-5 py-2.5 rounded-[24px] font-bold text-xs flex items-center gap-2 hover:bg-gray-200 active:scale-95 transition-all disabled:opacity-50 disabled:active:scale-100"
+                            disabled={!selectedClient || processing}
+                            className="w-full h-12 bg-black text-white rounded-[24px] font-bold text-sm shadow-lg shadow-black/20 hover:bg-gray-800 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
-                            {processing ? '...' : (
+                            {processing ? (
                                 <>
-                                    Оплатить <ChevronRight size={16} />
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    <span>Оформление...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Check size={18} strokeWidth={2.5} />
+                                    <span>Оформить заказ</span>
                                 </>
                             )}
                         </button>
                     </div>
                 </motion.div>
-            </AnimatePresence>
+            )}
 
-            {/* Create Client Modal */}
+            {/* Client Modal */}
             <AnimatePresence>
                 {isClientModalOpen && (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-6"
+                        onClick={() => setIsClientModalOpen(false)}
+                        style={{ zIndex: 9999 }}
+                    >
                         <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setIsClientModalOpen(false)}
-                            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-                        />
-                        <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
+                            initial={{ scale: 0.95, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.9, opacity: 0 }}
-                            className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl relative z-10"
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-white rounded-[32px] p-6 w-full max-w-md shadow-2xl"
                         >
-                            <h2 className="text-2xl font-bold mb-6">Новый клиент</h2>
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 className="text-xl font-bold text-gray-900">Новый клиент</h2>
+                                <button
+                                    onClick={() => setIsClientModalOpen(false)}
+                                    className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-all"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
 
                             <div className="space-y-4">
                                 <div>
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-3 mb-1.5 block tracking-widest">Имя</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Имя *
+                                    </label>
                                     <input
                                         type="text"
                                         value={newClient.first_name}
-                                        onChange={e => setNewClient({ ...newClient, first_name: e.target.value })}
-                                        className="w-full h-14 px-5 rounded-[24px] bg-gray-50/50 border border-gray-200 focus:bg-white focus:outline-none focus:ring-4 focus:ring-black/5 focus:border-gray-300 transition-all text-[15px] font-medium text-gray-900 placeholder:font-medium placeholder:text-gray-400"
-                                        placeholder="Иван"
+                                        onChange={(e) => setNewClient({ ...newClient, first_name: e.target.value })}
+                                        placeholder="Введите имя"
+                                        className="w-full h-12 px-4 bg-gray-50 border border-gray-200 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all"
+                                        autoFocus
                                     />
                                 </div>
+
                                 <div>
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-3 mb-1.5 block tracking-widest">Телефон</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Телефон
+                                    </label>
                                     <input
                                         type="tel"
                                         value={newClient.phone_number}
-                                        onChange={e => setNewClient({ ...newClient, phone_number: e.target.value })}
-                                        className="w-full h-14 px-5 rounded-[24px] bg-gray-50/50 border border-gray-200 focus:bg-white focus:outline-none focus:ring-4 focus:ring-black/5 focus:border-gray-300 transition-all text-[15px] font-medium text-gray-900 placeholder:font-medium placeholder:text-gray-400"
+                                        onChange={(e) => setNewClient({ ...newClient, phone_number: e.target.value })}
                                         placeholder="+998 90 123 45 67"
+                                        className="w-full h-12 px-4 bg-gray-50 border border-gray-200 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all"
                                     />
                                 </div>
+
                                 <div>
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-3 mb-1.5 block tracking-widest">Дата рождения</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Дата рождения
+                                    </label>
                                     <input
                                         type="date"
                                         value={newClient.birth_date}
-                                        onChange={e => setNewClient({ ...newClient, birth_date: e.target.value })}
-                                        className="w-full h-14 px-5 rounded-[24px] bg-gray-50/50 border border-gray-200 focus:bg-white focus:outline-none focus:ring-4 focus:ring-black/5 focus:border-gray-300 transition-all text-[15px] font-medium text-gray-900 placeholder:font-medium placeholder:text-gray-400"
+                                        onChange={(e) => setNewClient({ ...newClient, birth_date: e.target.value })}
+                                        className="w-full h-12 px-4 bg-gray-50 border border-gray-200 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all"
                                     />
                                 </div>
 
                                 <button
                                     onClick={handleAddClient}
-                                    className="w-full h-14 bg-black text-white rounded-[24px] font-bold text-[14px] mt-4 shadow-xl shadow-black/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-wide"
+                                    className="w-full h-12 bg-black text-white rounded-[16px] font-bold text-sm shadow-lg shadow-black/20 hover:bg-gray-800 active:scale-95 transition-all flex items-center justify-center gap-2 mt-6"
                                 >
-                                    Создать
+                                    <Plus size={18} />
+                                    <span>Создать клиента</span>
                                 </button>
                             </div>
                         </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-            {/* Checkout Modal (Full Screen) */}
-            <AnimatePresence>
-                {isCheckoutOpen && (
-                    <motion.div
-                        initial={{ opacity: 0, y: "100%" }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: "100%" }}
-                        transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                        className="fixed inset-0 z-[60] bg-gray-50 flex flex-col"
-                    >
-                        {/* Header */}
-                        <div className="px-6 py-4 bg-white border-b border-gray-100 flex items-center justify-between shrink-0 shadow-sm z-20">
-                            <div>
-                                <h2 className="text-2xl font-bold text-gray-900">Оформление заказа</h2>
-                                <p className="text-sm text-gray-400 font-medium">Клиент: {selectedClient?.first_name}</p>
-                            </div>
-                            <button
-                                onClick={() => setIsCheckoutOpen(false)}
-                                className="w-12 h-12 rounded-full bg-gray-100 text-gray-900 hover:bg-gray-200 flex items-center justify-center transition-colors active:scale-95"
-                            >
-                                <X size={24} />
-                            </button>
-                        </div>
-
-                        {/* Content */}
-                        <div className="flex-1 overflow-hidden">
-                            <div className="h-full overflow-y-auto p-4 md:p-6">
-                                <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 pb-6">
-
-                                    {/* Left: Items List */}
-                                    <div className="space-y-4">
-                                        <div className="flex items-center justify-between px-1">
-                                            <h3 className="font-bold text-gray-900 text-lg">Выбранные товары</h3>
-                                            <span className="text-sm font-medium text-gray-400 bg-gray-100 px-3 py-1 rounded-full">
-                                                {cart.reduce((a, c) => a + c.quantity, 0)} позиции
-                                            </span>
-                                        </div>
-                                        <div className="space-y-3">
-                                            {cart.map((item) => (
-                                                <div key={item.product.id} className="flex items-center justify-between p-4 bg-white rounded-2xl shadow-sm border border-gray-100 group transition-all hover:shadow-md">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="w-14 h-14 rounded-xl bg-gray-50 flex items-center justify-center overflow-hidden shrink-0 border border-gray-100 p-1">
-                                                            {item.product.image ? (
-                                                                <img src={item.product.image.startsWith('http') ? item.product.image : `http://127.0.0.1:8000${item.product.image}`} alt="" className="w-full h-full object-cover rounded-lg" />
-                                                            ) : <ShoppingBag size={20} className="text-gray-300" />}
-                                                        </div>
-                                                        <div>
-                                                            <div className="font-bold text-gray-900 text-[15px]">{item.product.name}</div>
-                                                            <div className="text-sm text-gray-500 font-medium flex items-center gap-1.5 mt-0.5">
-                                                                <span className="font-bold text-gray-700">{item.quantity} шт</span>
-                                                                <span className="text-gray-300">•</span>
-                                                                <span>{item.product.price_raw.toLocaleString()} сум</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <div className="font-bold text-base text-gray-900">
-                                                            {(item.product.price_raw * item.quantity).toLocaleString()}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Right: Payment & Summary */}
-                                    <div className="space-y-6">
-                                        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-6">
-                                            {/* Financials Section */}
-                                            <div className="space-y-4">
-                                                <div className="flex items-center justify-between py-1">
-                                                    <span className="text-gray-500 font-medium font-bold">Сумма заказа</span>
-                                                    <span className="text-lg font-bold text-gray-900">{totalAmount.toLocaleString()} сум</span>
-                                                </div>
-
-                                                <div className="h-px bg-gray-50 w-full" />
-
-                                                {/* Discount Input */}
-                                                <div>
-                                                    <div className="flex items-center justify-between mb-2 px-1">
-                                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Скидка</label>
-                                                        {Number(discount) > 0 && (
-                                                            <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-md">Применено</span>
-                                                        )}
-                                                    </div>
-                                                    <div className="relative">
-                                                        <input
-                                                            type="text"
-                                                            value={discount ? discount.toString().replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, " ") : ""}
-                                                            onChange={(e) => {
-                                                                const raw = e.target.value.replace(/\D/g, '');
-                                                                setDiscount(raw);
-                                                            }}
-                                                            placeholder="0"
-                                                            className="w-full h-14 bg-gray-50 border border-transparent rounded-2xl px-5 font-bold text-xl text-gray-900 focus:bg-white focus:border-gray-200 focus:outline-none focus:ring-4 focus:ring-gray-100 transition-all"
-                                                        />
-                                                        <div className="absolute right-5 top-1/2 -translate-y-1/2 font-bold text-gray-400">сум</div>
-                                                    </div>
-                                                </div>
-
-                                                {/* Total Board */}
-                                                <div className="flex items-center justify-between p-5 bg-[#0a0a0a] text-white rounded-2xl shadow-xl shadow-black/10 mt-2 overflow-hidden relative">
-                                                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl" />
-                                                    <div className="relative z-10">
-                                                        <span className="text-xs font-bold opacity-60 uppercase tracking-widest flex items-center gap-2">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                                                            К оплате
-                                                        </span>
-                                                        <div className="text-2xl font-black mt-1">
-                                                            {Math.max(0, totalAmount - (Number(discount?.toString().replace(/\s/g, '')) || 0)).toLocaleString()} сум
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Payment Methods */}
-                                            <div className="pt-2">
-                                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 block px-1">Способ оплаты</label>
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    {[
-                                                        { id: 'cash', label: 'Наличные', icon: Wallet, color: '#000000' },
-                                                        { id: 'card', label: 'Терминал', icon: CreditCard, color: '#000000' },
-                                                        { id: 'payme', label: 'Payme', icon: Smartphone, color: '#00CCCC' },
-                                                        { id: 'click', label: 'Click', icon: Smartphone, color: '#0073FF' }
-                                                    ].map((method) => {
-                                                        const isSelected = paymentMethod === method.id;
-                                                        return (
-                                                            <button
-                                                                key={method.id}
-                                                                onClick={() => setPaymentMethod(method.id as any)}
-                                                                className={`h-14 rounded-2xl border-2 flex items-center justify-center gap-2 font-bold text-sm transition-all active:scale-95 ${isSelected
-                                                                    ? 'text-white shadow-lg border-transparent'
-                                                                    : 'bg-white border-gray-100 text-gray-400 hover:border-gray-300 hover:text-gray-600'
-                                                                    }`}
-                                                                style={isSelected ? { backgroundColor: method.color } : {}}
-                                                            >
-                                                                <method.icon size={18} /> {method.label}
-                                                            </button>
-                                                        )
-                                                    })}
-                                                </div>
-                                            </div>
-
-                                            {/* Comment */}
-                                            <div className="pt-2">
-                                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block px-1">Заметка</label>
-                                                <div className="relative">
-                                                    <textarea
-                                                        value={comment}
-                                                        onChange={(e) => setComment(e.target.value)}
-                                                        placeholder="Особенности заказа, упаковка..."
-                                                        className="w-full h-24 bg-gray-50 border border-transparent rounded-2xl p-4 text-sm font-medium focus:bg-white focus:border-gray-200 focus:outline-none focus:ring-4 focus:ring-gray-100 transition-all resize-none shadow-inner"
-                                                    />
-                                                    <MessageSquare size={16} className="absolute right-4 bottom-4 text-gray-300" />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Fixed Bottom Action */}
-                        <div className="p-4 border-t border-gray-100 bg-white shrink-0 safe-bottom z-20">
-                            <div className="max-w-6xl mx-auto flex items-center justify-end">
-                                <button
-                                    onClick={handleProcessOrder}
-                                    disabled={processing}
-                                    className="w-full md:w-auto md:min-w-[300px] h-14 bg-[#2e6fef] text-white rounded-[20px] font-bold text-lg shadow-xl shadow-blue-500/30 hover:shadow-blue-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-3 disabled:opacity-70 disabled:scale-100"
-                                >
-                                    {processing ? (
-                                        <span className="animate-pulse">Обработка...</span>
-                                    ) : (
-                                        <>
-                                            Подтвердить оплату <ChevronRight size={24} />
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </div>
                     </motion.div>
                 )}
             </AnimatePresence>

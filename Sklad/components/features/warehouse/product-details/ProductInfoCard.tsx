@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { Sprout, Package, Tag, Clock, Truck, Camera } from "lucide-react";
 import { useRef } from "react";
 
@@ -51,11 +50,15 @@ export function ProductInfoCard({
                 onClick={handleImageClick}
             >
                 {image ? (
-                    <Image
-                        src={image.startsWith("/static") ? `http://localhost:8000${image}` : image}
+                    <img
+                        src={image.startsWith("/static") ? image : (image.startsWith("http") ? image : image)}
                         alt={name}
-                        fill
-                        className="object-cover"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                            console.log('Image load error in ProductInfoCard:', image);
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                        }}
                     />
                 ) : (
                     <div className={`w-10 h-10 rounded-full ${safeColor}`}></div>

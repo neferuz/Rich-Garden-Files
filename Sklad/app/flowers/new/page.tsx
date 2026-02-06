@@ -160,8 +160,8 @@ function CreateBouquetContent() {
         try {
             const uploadPromises = files.map(file => api.uploadImage(file))
             const results = await Promise.all(uploadPromises)
-            // Assuming local dev for now, but in prod should be relative or configured base URL
-            const newUrls = results.map(res => `http://localhost:8000${res.url}`)
+            // API returns {"url": "/static/uploads/..."}, use it directly
+            const newUrls = results.map(res => res.url || '')
             setImages(prev => [...prev, ...newUrls])
         } catch (err) {
             console.error("Failed to upload image", err)
@@ -451,7 +451,7 @@ function CreateBouquetContent() {
                         <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
                             {images.map((img, idx) => (
                                 <div key={idx} className="relative flex-none w-[160px] aspect-[4/3] bg-gray-100 rounded-[20px] overflow-hidden group shadow-sm border border-gray-100 snap-start cursor-zoom-in" onClick={() => setSelectedImageIndex(idx)}>
-                                    <Image src={img} alt={`Preview ${idx}`} fill className="object-cover" />
+                                    <img src={img} alt={`Preview ${idx}`} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation()
@@ -603,11 +603,15 @@ function CreateBouquetContent() {
                                             {/* Image */}
                                             <div className="relative w-20 h-20 rounded-2xl bg-gray-50 flex-shrink-0 flex items-center justify-center overflow-hidden border border-gray-100">
                                                 {p.image ? (
-                                                    <Image
-                                                        src={p.image.startsWith("http") ? p.image : `http://localhost:8000${p.image.startsWith("/") ? "" : "/"}${p.image}`}
+                                                    <img
+                                                        src={p.image.startsWith("http") ? p.image : (p.image.startsWith("/") ? p.image : `/${p.image}`)}
                                                         alt={p.name}
-                                                        fill
-                                                        className="object-cover p-1 rounded-2xl"
+                                                        className="w-full h-full object-cover p-1 rounded-2xl"
+                                                        onError={(e) => {
+                                                            // Silently handle missing images - hide broken image
+                                                            const target = e.target as HTMLImageElement;
+                                                            target.style.display = 'none';
+                                                        }}
                                                     />
                                                 ) : (
                                                     <div className="w-full h-full flex items-center justify-center text-gray-300"><Package size={24} strokeWidth={1.5} /></div>
@@ -716,12 +720,11 @@ function CreateBouquetContent() {
 
                     <div className="flex-1 relative flex items-center justify-center overflow-hidden">
                         <div className="relative w-full h-full max-h-[80vh] aspect-[3/4] sm:aspect-auto">
-                            <Image
-                                src={images[selectedImageIndex]}
+                            <img
+                                src={images[selectedImageIndex] || ''}
                                 alt="Full screen preview"
-                                fill
-                                className="object-contain"
-                                priority
+                                className="w-full h-full object-contain"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                             />
                         </div>
 

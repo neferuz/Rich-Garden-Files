@@ -212,7 +212,7 @@ export default function SupplyPage() {
                     <div className="flex justify-center">
                         <label className="relative w-32 h-32 rounded-[32px] bg-gray-100 border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors overflow-hidden">
                             {image ? (
-                                <img src={`http://localhost:8000${image}`} alt="Preview" className="w-full h-full object-cover" />
+                                <img src={`${image}`} alt="Preview" className="w-full h-full object-cover" />
                             ) : (
                                 <>
                                     <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center mb-2 text-gray-400">

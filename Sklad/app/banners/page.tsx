@@ -81,7 +81,7 @@ export default function BannersPage() {
 
         if (banner.image_url) {
             setBgType('image')
-            setBgImageUrl(banner.image_url.startsWith('http') ? banner.image_url : `http://127.0.0.1:8000${banner.image_url}`)
+            setBgImageUrl(banner.image_url.startsWith('http') ? banner.image_url : banner.image_url)
         } else {
             setBgType('color')
         }
@@ -96,13 +96,18 @@ export default function BannersPage() {
         e.preventDefault()
         setIsSaving(true)
         try {
-            let finalImageUrl = selectedBanner?.image_url
+            let finalImageUrl: string | null | undefined = selectedBanner?.image_url
 
             if (bgType === 'image' && bgImage) {
+                // Загружаем новое изображение
                 const uploadRes = await api.uploadImage(bgImage)
                 finalImageUrl = uploadRes.url
             } else if (bgType === 'color') {
-                finalImageUrl = undefined
+                // Удаляем изображение, переключаясь на цвет
+                finalImageUrl = null
+            } else if (bgType === 'image' && !bgImage && selectedBanner?.image_url) {
+                // Оставляем существующее изображение
+                finalImageUrl = selectedBanner.image_url
             }
 
             if (modalState === 'add') {
@@ -244,8 +249,12 @@ export default function BannersPage() {
                                     {banner.image_url && (
                                         <>
                                             <img
-                                                src={banner.image_url.startsWith('http') ? banner.image_url : `http://127.0.0.1:8000${banner.image_url}`}
+                                                src={banner.image_url.startsWith('http') ? banner.image_url : banner.image_url}
                                                 className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                                onError={(e) => {
+                                                    const target = e.target as HTMLImageElement;
+                                                    target.style.display = 'none';
+                                                }}
                                             />
                                             {/* Gradient Overlay for text readability */}
                                             <div className="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent pointer-events-none" />
@@ -534,6 +543,20 @@ export default function BannersPage() {
                                                         }}
                                                     />
                                                 </label>
+                                                {bgImageUrl && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setBgImageUrl("")
+                                                            setBgImage(null)
+                                                            setBgType('color')
+                                                        }}
+                                                        className="w-full h-12 rounded-[20px] bg-red-50 text-red-500 font-bold text-sm flex items-center justify-center gap-2 hover:bg-red-100 active:scale-95 transition-all"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                        <span>Удалить изображение</span>
+                                                    </button>
+                                                )}
                                             </div>
                                         )}
                                     </div>

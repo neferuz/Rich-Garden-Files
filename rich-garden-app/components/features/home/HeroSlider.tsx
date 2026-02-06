@@ -10,15 +10,15 @@ export function HeroSlider() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        api.getBanners().then(data => {
-            if (data.length > 0) {
-                setBanners(data);
-            }
-            setLoading(false);
-        });
+        api.getBanners()
+            .then(data => {
+                setBanners(Array.isArray(data) ? data : []);
+            })
+            .catch(() => setBanners([]))
+            .finally(() => setLoading(false));
     }, []);
 
-    if (loading) return <div className="w-full h-[550px] bg-gray-50 flex items-center justify-center animate-pulse"></div>;
+    if (loading) return <div className="w-full h-[420px] bg-gray-50 flex items-center justify-center animate-pulse"></div>;
     if (banners.length === 0) return null;
 
     const currentBanner = banners[currentSlide];
@@ -31,7 +31,7 @@ export function HeroSlider() {
     const bgClass = bgHexMatch ? '' : currentBanner.bg_color;
 
     return (
-        <div className="relative w-full h-[550px] overflow-hidden">
+        <div className="relative w-full h-[420px] overflow-hidden">
             <AnimatePresence mode="wait">
                 <motion.div
                     key={currentSlide}

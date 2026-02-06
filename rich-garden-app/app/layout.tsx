@@ -1,15 +1,13 @@
 import type { Metadata } from "next";
-import { Manrope } from "next/font/google";
 import "./globals.css";
 import { FavoritesProvider } from "@/context/FavoritesContext";
 import { CartProvider } from "@/context/CartContext";
 import { Toaster } from "sonner";
 import { TelegramProvider } from "@/components/providers/TelegramProvider";
 
-const manrope = Manrope({
-  subsets: ["latin", "cyrillic"],
-  variable: "--font-manrope",
-});
+// Manrope загружается через CSS импорт в globals.css
+// Это позволяет избежать проблем с доступом к Google Fonts во время build
+// Шрифт будет загружен браузером во время выполнения
 
 export const metadata: Metadata = {
   title: "Rich Garden",
@@ -35,6 +33,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet" />
+        <style dangerouslySetInnerHTML={{__html: `@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap');`}} />
       </head>
       <body
         className="font-sans antialiased text-gray-900 bg-white"

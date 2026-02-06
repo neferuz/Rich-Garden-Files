@@ -8,7 +8,9 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-TELEGRAM_GROUP_ID = os.getenv("TELEGRAM_GROUP_ID")
+TELEGRAM_GROUP_BOT_TOKEN = os.getenv("TELEGRAM_GROUP_BOT_TOKEN", "7119055260:AAHEJ58S7A7b1niVY_Q20fcJr3KyZLfc7hk")
+TELEGRAM_GROUP_ID = os.getenv("TELEGRAM_GROUP_ID", "-5194643570")
+HTTPX_TIMEOUT = 30.0
 
 def escape_html(text):
     if not text:
@@ -20,24 +22,33 @@ def format_number(num):
     return f"{int(num):,}".replace(",", " ")
 
 async def send_order_notification(order: dict, items_detail: str):
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_GROUP_ID:
-        print("Telegram credentials not found")
+    print(f"DEBUG send_order_notification: BOT_TOKEN={TELEGRAM_GROUP_BOT_TOKEN[:20]}..., GROUP_ID={TELEGRAM_GROUP_ID}")
+    if not TELEGRAM_GROUP_BOT_TOKEN or not TELEGRAM_GROUP_ID:
+        print("ERROR: Telegram group credentials not found")
+        print(f"  TELEGRAM_GROUP_BOT_TOKEN: {TELEGRAM_GROUP_BOT_TOKEN}")
+        print(f"  TELEGRAM_GROUP_ID: {TELEGRAM_GROUP_ID}")
         return None
 
     # Construct the message text
     status_map = {
-        "new": "Новый заказ",
-        "assembly": "В сборке",
-        "delivery": "В пути",
-        "completed": "Завершен",
-        "canceled": "Отменен"
+        "new": "🟢 Новый заказ",
+        "pending_payment": "⏳ Ожидает оплаты",
+        "paid": "💰 Оплачен",
+        "processing": "🔨 В сборке",
+        "assembly": "🔨 В сборке",
+        "shipping": "🚚 В пути",
+        "delivery": "🚚 В пути",
+        "done": "✅ Завершен",
+        "completed": "✅ Завершен",
+        "cancelled": "❌ Отменен",
+        "canceled": "❌ Отменен"
     }
     
-    status_text = status_map.get(order.get("status", "new"), order.get("status", "new"))
+    status_text = status_map.get(order.get("status", "new"), f"❓ {order.get('status', 'new')}")
     
     # Escape all dynamic data
     customer_name = escape_html(order['customer_name'])
-    customer_phone = escape_html(order['customer_phone'])
+    customer_phone = escape_html(order.get('customer_phone') or 'Уточнить')
     address = escape_html(order.get('address') or 'Самовывоз')
     comment = escape_html(order.get('comment') or '')
     payment_method = escape_html(order.get('payment_method') or 'Не указано')
@@ -47,6 +58,9 @@ async def send_order_notification(order: dict, items_detail: str):
 
     # Extras formatting
     extras = order.get('extras', {})
+    # Убеждаемся, что extras - это словарь
+    if not isinstance(extras, dict):
+        extras = {}
     extras_text = ""
     
     # helper for mapping english keys to russian
@@ -92,52 +106,97 @@ async def send_order_notification(order: dict, items_detail: str):
     if comment:
          message += f"\n💭 <b>Комментарий:</b> {comment}\n"
     
-    # Inline Keyboard
-    keyboard = {
-        "inline_keyboard": [
-            [
-                {"text": "🔨 В сборку", "callback_data": f"set_assembly_{order['id']}"},
-                {"text": "🚚 В путь", "callback_data": f"set_delivery_{order['id']}"}
-            ],
-            [
-                {"text": "✅ Завершить", "callback_data": f"set_completed_{order['id']}"},
-                {"text": "❌ Отменить", "callback_data": f"set_canceled_{order['id']}"}
-            ],
-            [
-                {"text": "📜 Открыть в Sklad", "url": f"http://127.0.0.1:3001/orders?order={order['id']}"}
+    # Inline Keyboard - все статусы
+    current_status = order.get("status", "new").lower()
+    buttons = []
+    
+    # Для завершенных/отмененных - без кнопок
+    if current_status in ["done", "completed", "завершен", "выполнен", "cancelled", "canceled", "отменен"]:
+        buttons = []
+    else:
+        # Показываем все доступные статусы в зависимости от текущего
+        if current_status in ["new", "pending_payment", "paid"]:
+            # Для новых заказов - все кнопки
+            buttons = [
+                [{"text": "🔨 В сборку", "callback_data": f"set_processing_{order['id']}"}],
+                [{"text": "🚚 В путь", "callback_data": f"set_shipping_{order['id']}"}],
+                [{"text": "✅ Завершить", "callback_data": f"set_done_{order['id']}"}],
+                [{"text": "❌ Отменить", "callback_data": f"set_cancelled_{order['id']}"}]
             ]
-        ]
+        elif current_status in ["processing", "assembly"]:
+            # Для заказов в сборке
+            buttons = [
+                [{"text": "🚚 В путь", "callback_data": f"set_shipping_{order['id']}"}],
+                [{"text": "✅ Завершить", "callback_data": f"set_done_{order['id']}"}],
+                [{"text": "❌ Отменить", "callback_data": f"set_cancelled_{order['id']}"}]
+            ]
+        elif current_status in ["shipping", "delivery"]:
+            # Для заказов в пути
+            buttons = [
+                [{"text": "✅ Завершить", "callback_data": f"set_done_{order['id']}"}],
+                [{"text": "❌ Отменить", "callback_data": f"set_cancelled_{order['id']}"}]
+            ]
+        else:
+            # Для других статусов - все кнопки
+            buttons = [
+                [{"text": "🔨 В сборку", "callback_data": f"set_processing_{order['id']}"}],
+                [{"text": "🚚 В путь", "callback_data": f"set_shipping_{order['id']}"}],
+                [{"text": "✅ Завершить", "callback_data": f"set_done_{order['id']}"}],
+                [{"text": "❌ Отменить", "callback_data": f"set_cancelled_{order['id']}"}]
+            ]
+    
+    keyboard = {
+        "inline_keyboard": buttons
     }
 
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    url = f"https://api.telegram.org/bot{TELEGRAM_GROUP_BOT_TOKEN}/sendMessage"
     
+    print(f"DEBUG: Keyboard structure: {json.dumps(keyboard, indent=2, ensure_ascii=False)}")
     print(f"Sending Telegram message to {TELEGRAM_GROUP_ID}") 
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
         try:
-            response = await client.post(url, json={
+            print(f"DEBUG: Sending message to group {TELEGRAM_GROUP_ID}")
+            payload = {
                 "chat_id": TELEGRAM_GROUP_ID,
                 "text": message,
                 "parse_mode": "HTML",
                 "reply_markup": keyboard,
                 "disable_web_page_preview": True
-            })
+            }
+            print(f"DEBUG: Payload (without text): chat_id={payload['chat_id']}, has_keyboard={bool(payload.get('reply_markup'))}")
+            response = await client.post(url, json=payload)
+            
+            print(f"DEBUG: Telegram API response status: {response.status_code}")
+            result = response.json()
+            print(f"DEBUG: Telegram API response: {result}")
             
             if response.status_code != 200:
-                print(f"Telegram API Error: {response.text}") 
+                print(f"ERROR: Telegram API Error: {response.status_code} - {response.text}")
+                print(f"ERROR: Full response: {result}")
+                return None
                 
-            response.raise_for_status()
-            return response.json().get("result", {}).get("message_id")
+            if not result.get('ok'):
+                print(f"ERROR: Telegram API returned error: {result}")
+                return None
+                
+            message_id = result.get("result", {}).get("message_id")
+            print(f"DEBUG: Message sent successfully, message_id: {message_id}")
+            return message_id
         except Exception as e:
-            print(f"Failed to send telegram message: {e}")
+            print(f"ERROR: Failed to send telegram message: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
 async def update_order_status_message(message_id: int, order: dict, items_detail: str):
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_GROUP_ID or not message_id:
+    if not TELEGRAM_GROUP_BOT_TOKEN or not TELEGRAM_GROUP_ID or not message_id:
         return
 
     status_map = {
         "new": "🟢 Новый заказ",
+        "pending_payment": "⏳ Ожидает оплаты",
+        "paid": "💰 Оплачен",
         "processing": "🔨 В сборке",
         "assembly": "🔨 В сборке",
         "shipping": "🚚 В пути",
@@ -152,7 +211,7 @@ async def update_order_status_message(message_id: int, order: dict, items_detail
     
     # Escape dynamic data
     customer_name = escape_html(order['customer_name'])
-    customer_phone = escape_html(order['customer_phone'])
+    customer_phone = escape_html(order.get('customer_phone') or 'Уточнить')
     address = escape_html(order.get('address') or 'Самовывоз')
     comment = escape_html(order.get('comment') or '')
     payment_method = escape_html(order.get('payment_method') or 'Не указано')
@@ -162,6 +221,9 @@ async def update_order_status_message(message_id: int, order: dict, items_detail
 
     # Extras formatting
     extras = order.get('extras', {})
+    # Убеждаемся, что extras - это словарь
+    if not isinstance(extras, dict):
+        extras = {}
     extras_text = ""
     
     # helper for mapping english keys to russian
@@ -207,36 +269,52 @@ async def update_order_status_message(message_id: int, order: dict, items_detail
     if comment:
          message += f"\n💭 <b>Комментарий:</b> {comment}\n"
 
-    # Dynamic keyboard
-    current_status = order.get("status", "new")
+    # Dynamic keyboard - все статусы
+    current_status = order.get("status", "new").lower()
     buttons = []
     
-    if current_status == "new":
-        buttons = [
-            [{"text": "🔨 В сборку", "callback_data": f"set_assembly_{order['id']}"}],
-            [{"text": "❌ Отменить", "callback_data": f"set_canceled_{order['id']}"}]
-        ]
-    elif current_status in ["processing", "assembly"]:
-        buttons = [
-            [{"text": "🚚 В путь", "callback_data": f"set_delivery_{order['id']}"}],
-            [{"text": "❌ Отменить", "callback_data": f"set_canceled_{order['id']}"}]
-        ]
-    elif current_status in ["shipping", "delivery"]:
-         buttons = [
-            [{"text": "✅ Завершить", "callback_data": f"set_completed_{order['id']}"}],
-            [{"text": "❌ Отменить", "callback_data": f"set_canceled_{order['id']}"}]
-        ]
-    
-    # Always add 'Open' button
-    buttons.append([{"text": "📜 Открыть в Sklad", "url": f"http://127.0.0.1:3001/orders?order={order['id']}"}])
+    # Для завершенных/отмененных - без кнопок
+    if current_status in ["done", "completed", "завершен", "выполнен", "cancelled", "canceled", "отменен"]:
+        buttons = []
+    else:
+        # Показываем все доступные статусы в зависимости от текущего
+        if current_status in ["new", "pending_payment", "paid"]:
+            # Для новых заказов - все кнопки
+            buttons = [
+                [{"text": "🔨 В сборку", "callback_data": f"set_processing_{order['id']}"}],
+                [{"text": "🚚 В путь", "callback_data": f"set_shipping_{order['id']}"}],
+                [{"text": "✅ Завершить", "callback_data": f"set_done_{order['id']}"}],
+                [{"text": "❌ Отменить", "callback_data": f"set_cancelled_{order['id']}"}]
+            ]
+        elif current_status in ["processing", "assembly"]:
+            # Для заказов в сборке
+            buttons = [
+                [{"text": "🚚 В путь", "callback_data": f"set_shipping_{order['id']}"}],
+                [{"text": "✅ Завершить", "callback_data": f"set_done_{order['id']}"}],
+                [{"text": "❌ Отменить", "callback_data": f"set_cancelled_{order['id']}"}]
+            ]
+        elif current_status in ["shipping", "delivery"]:
+            # Для заказов в пути
+            buttons = [
+                [{"text": "✅ Завершить", "callback_data": f"set_done_{order['id']}"}],
+                [{"text": "❌ Отменить", "callback_data": f"set_cancelled_{order['id']}"}]
+            ]
+        else:
+            # Для других статусов - все кнопки
+            buttons = [
+                [{"text": "🔨 В сборку", "callback_data": f"set_processing_{order['id']}"}],
+                [{"text": "🚚 В путь", "callback_data": f"set_shipping_{order['id']}"}],
+                [{"text": "✅ Завершить", "callback_data": f"set_done_{order['id']}"}],
+                [{"text": "❌ Отменить", "callback_data": f"set_cancelled_{order['id']}"}]
+            ]
 
     keyboard = {
          "inline_keyboard": buttons
     }
 
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageText"
+    url = f"https://api.telegram.org/bot{TELEGRAM_GROUP_BOT_TOKEN}/editMessageText"
     
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
         try:
             response = await client.post(url, json={
                 "chat_id": TELEGRAM_GROUP_ID,
@@ -258,7 +336,7 @@ async def send_broadcast_message(telegram_id: int, text: str):
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
         try:
             response = await client.post(url, json={
                 "chat_id": telegram_id,
@@ -282,7 +360,7 @@ async def get_chat_photo(telegram_id: int):
         return None
 
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
             # 1. Get user profile photos
             photos_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUserProfilePhotos"
             resp = await client.post(photos_url, json={"user_id": telegram_id, "limit": 1})
@@ -341,19 +419,15 @@ async def send_customer_receipt(telegram_id: int, order: dict, items_detail: str
     )
     
     # Button to open Mini App
-    # Using a placeholder URL that redirects to localhost for dev purposes
-    # Since Telegram requires HTTPS for web_app, I will use a generic placeholder or try standard url button if localhost.
-    # The user asked for `http://localhost:3000/orders`. 
-    # Telegram web app buttons MUST be HTTPS. 
-    # I will put a placeholder https link: `https://rich-garden-app.vercel.app/orders`
-    # and a note.
+    # Telegram web app buttons MUST be HTTPS
+    # Using production URL: https://24eywa.ru/orders
     
     keyboard = {
         "inline_keyboard": [
             [
                 {
                     "text": "🛍 Мои заказы",
-                    "web_app": { "url": "https://rich-garden-app.vercel.app/orders" }
+                    "web_app": { "url": "https://24eywa.ru/orders" }
                 }
             ]
         ]
@@ -361,15 +435,22 @@ async def send_customer_receipt(telegram_id: int, order: dict, items_detail: str
     
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     
-    async with httpx.AsyncClient() as client:
+    print(f"DEBUG send_customer_receipt: Using BOT_TOKEN={TELEGRAM_BOT_TOKEN[:20]}... for telegram_id={telegram_id}")
+    
+    async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
         try:
-            await client.post(url, json={
+            response = await client.post(url, json={
                 "chat_id": telegram_id,
                 "text": message,
                 "parse_mode": "HTML",
                 "reply_markup": keyboard
             })
+            print(f"DEBUG send_customer_receipt: Response status={response.status_code}")
+            if response.status_code != 200:
+                print(f"ERROR send_customer_receipt: {response.text}")
             return True
         except Exception as e:
-            print(f"Failed to send receipt to {telegram_id}: {e}")
+            print(f"ERROR: Failed to send receipt to {telegram_id}: {e}")
+            import traceback
+            traceback.print_exc()
             return False

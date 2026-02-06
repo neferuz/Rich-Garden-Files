@@ -3,7 +3,7 @@
 import {
     ChevronLeft, Settings, Bell, Globe, Moon, Shield,
     Database, Info, LogOut, ChevronRight, Check, X,
-    Palette, Clock, MessageCircle, HelpCircle
+    Palette, Clock, MessageCircle, HelpCircle, Terminal, Copy
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -19,6 +19,15 @@ export default function SettingsPage() {
     // States for toggles
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false)
     const [isFAQOpen, setIsFAQOpen] = useState(false)
+    const [buildCopied, setBuildCopied] = useState(false)
+
+    const buildScript = "cd /var/www/rich-garden && bash scripts/build-and-reload-sklad.sh"
+
+    const copyBuildScript = () => {
+        navigator.clipboard.writeText(buildScript)
+        setBuildCopied(true)
+        setTimeout(() => setBuildCopied(false), 2000)
+    }
 
     const faqs = [
         { q: "Как добавить товар?", a: "Перейдите в раздел 'Склад' и нажмите кнопку 'Приход' в нижнем меню." },
@@ -154,6 +163,32 @@ export default function SettingsPage() {
                         {renderSettingItem(<Globe />, "Язык приложения", "RU", () => { }, "text-blue-600", "bg-blue-50")}
                         {renderToggleItem(<Moon />, "Темная тема", false, () => { }, "text-indigo-600", "bg-indigo-50", true, "Только светлая")}
                         {renderSettingItem(<Palette />, "Цветовая схема", "Стандарт", () => { }, "text-emerald-600", "bg-emerald-50", true, "В разработке")}
+                    </div>
+                </div>
+
+                {/* Build script — сборка админки на сервере */}
+                <div className="space-y-3">
+                    <h3 className="px-4 text-[12px] font-medium text-gray-400">Сборка</h3>
+                    <div className="bg-white rounded-[28px] shadow-sm border border-gray-100 overflow-hidden p-5">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-10 h-10 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600">
+                                <Terminal size={20} strokeWidth={2.5} />
+                            </div>
+                            <div>
+                                <p className="text-[15px] font-medium text-gray-900">Сборка админки</p>
+                                <p className="text-[11px] text-gray-400">Выполните на сервере по SSH</p>
+                            </div>
+                        </div>
+                        <pre className="bg-gray-50 rounded-2xl p-4 text-[12px] font-mono text-gray-700 overflow-x-auto border border-gray-100">
+                            {buildScript}
+                        </pre>
+                        <button
+                            onClick={copyBuildScript}
+                            className="mt-3 w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-amber-500 text-white font-medium text-sm active:scale-[0.98] transition-all"
+                        >
+                            {buildCopied ? <Check size={18} /> : <Copy size={18} />}
+                            {buildCopied ? "Скопировано" : "Скопировать команду"}
+                        </button>
                     </div>
                 </div>
 

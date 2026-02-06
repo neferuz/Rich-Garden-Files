@@ -143,7 +143,7 @@ export default function CartPage() {
                         <h3 className="text-[18px] font-bold text-black mb-4 px-1">Подобрали для вас</h3>
                         <div className="flex gap-4 overflow-x-auto no-scrollbar px-6 py-2 snap-x snap-mandatory -mx-4">
                             {recommendations.map((rec) => {
-                                const imageUrl = rec.image.startsWith('http') ? rec.image : `http://localhost:8000${rec.image}`;
+                                const imageUrl = rec.image.startsWith('http') ? rec.image : `${rec.image}`;
 
                                 return (
                                     <Link
@@ -320,7 +320,7 @@ function SwipeableCartItem({ item, updateQuantity, removeFromCart }: { item: any
                 <div className="relative w-[88px] h-[88px] bg-[#F7F7F7] rounded-[18px] p-1.5 shrink-0">
                     <div className="relative w-full h-full rounded-[14px] overflow-hidden">
                         <Image
-                            src={item.product.image.startsWith('http') ? item.product.image : `http://localhost:8000${item.product.image}`}
+                            src={item.product.image.startsWith('http') ? item.product.image : `${item.product.image}`}
                             alt={item.product.name}
                             fill
                             className="object-cover"

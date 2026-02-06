@@ -24,4 +24,4 @@ class Employee(EmployeeBase):
     created_at: datetime.datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True

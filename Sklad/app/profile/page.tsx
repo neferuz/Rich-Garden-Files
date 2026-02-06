@@ -5,7 +5,7 @@ import {
     Link as LinkIcon, AlertCircle, Loader2, Plus, Sparkles,
     TrendingUp, Award, Zap, Share2, Layout
 } from "lucide-react"
-import Image from "next/image"
+// import Image from "next/image" // Removed to fix setState during render warning
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { useAuth } from "@/context/AuthContext"
@@ -106,12 +106,14 @@ export default function ProfilePage() {
                     <div className="relative mb-3">
                         <div className="w-24 h-24 rounded-full p-1.5 bg-white ring-1 ring-gray-100 shadow-xl shadow-black/5 mb-2 mx-auto relative z-10 overflow-hidden">
                             {employee.photo_url || user?.photo_url ? (
-                                <Image
+                                <img
                                     src={employee.photo_url || user?.photo_url || ''}
                                     alt="Profile"
-                                    width={96}
-                                    height={96}
                                     className="w-full h-full rounded-full object-cover"
+                                    onError={(e) => {
+                                        const target = e.target as HTMLImageElement;
+                                        target.style.display = 'none';
+                                    }}
                                 />
                             ) : (
                                 <div className="w-full h-full rounded-full bg-gray-100 flex items-center justify-center text-3xl font-medium text-gray-300">

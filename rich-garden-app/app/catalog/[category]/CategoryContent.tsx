@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ShoppingBag, Heart, Filter, X, ArrowUpDown, ChevronDown, Clock, Check, Plus } from 'lucide-react'
+import { ChevronLeft, ShoppingBag, Filter, X, ArrowUpDown, ChevronDown, Clock } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import Image from 'next/image'
 import Link from 'next/link'
 import { BottomNav } from '@/components/BottomNav'
 import { cn } from '@/lib/utils'
@@ -12,6 +11,7 @@ import { useFavorites, Product } from '@/context/FavoritesContext'
 import { useCart } from '@/context/CartContext'
 import { toast } from 'sonner'
 import { api } from '@/lib/api'
+import { ProductCard, type ProductCardProduct } from '@/components/features/catalog/ProductCard'
 
 const categoryNames: Record<string, string> = {
     all: "Все",
@@ -107,7 +107,7 @@ export default function CategoryContent({ categorySlug }: { categorySlug: string
                 id: p.id,
                 name: p.name,
                 price: p.price_display || `${p.price_raw.toLocaleString()} сум`,
-                image: p.image.startsWith('http') ? p.image : `http://localhost:8000${p.image}`,
+                image: p.image.startsWith('http') ? p.image : `${p.image}`,
                 price_raw: p.price_raw,
                 isHit: p.is_hit,
                 isNew: p.is_new
@@ -172,95 +172,63 @@ export default function CategoryContent({ categorySlug }: { categorySlug: string
                 </div>
             </header>
 
-            {/* Product Grid */}
-            <div className="px-4 pt-4 mb-20">
+            {/* Product Grid — единые карточки, адаптивная сетка */}
+            <div className="px-4 md:px-6 pt-4 mb-20">
                 <motion.div
                     layout
-                    className="grid grid-cols-2 gap-x-3 gap-y-8"
+                    className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5"
                 >
-                    <AnimatePresence mode='popLayout'>
+                    <AnimatePresence mode="popLayout">
                         {products.map((product) => {
                             const isFav = isFavorite(product.id)
-                            const productData: Product = {
+                            const productData: ProductCardProduct = {
                                 id: product.id,
                                 name: product.name,
                                 price: product.price,
                                 image: product.image,
                                 isHit: product.isHit,
-                                isNew: product.isNew
+                                isNew: product.isNew,
                             }
+                            const forCart: Product = productData
 
                             return (
                                 <motion.div
                                     key={product.id}
                                     layout
-                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    initial={{ opacity: 0, scale: 0.96 }}
                                     animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.9 }}
+                                    exit={{ opacity: 0, scale: 0.96 }}
                                     transition={{ duration: 0.2 }}
                                 >
-                                    <Link href={`/product/${product.id}`} className="group">
-                                        {/* Image Card */}
-                                        <div className="relative aspect-[3/4] rounded-[20px] overflow-hidden bg-gray-50 mb-3 border border-gray-100/50">
-                                            <Image
-                                                src={product.image}
-                                                alt={product.name}
-                                                fill
-                                                className="object-cover group-hover:scale-105 transition-transform duration-500"
-                                            />
-                                            <button
-                                                onClick={(e) => {
-                                                    e.preventDefault()
-                                                    e.stopPropagation()
-                                                    toggleFavorite(productData)
-                                                    toast.dismiss()
-                                                    toast.success(isFav ? "Удалено из избранного" : "Добавлено в избранное", {
-                                                        description: product.name,
-                                                        duration: 2000
-                                                    })
-                                                }}
-                                                className="absolute top-3 right-3 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center active:scale-90 transition-transform shadow-sm"
-                                            >
-                                                <Heart size={16} className={cn("transition-colors", isFav ? "text-red-500 fill-red-500" : "text-black")} />
-                                            </button>
-
-                                            {product.isHit && (
-                                                <div className="absolute top-3 left-3 px-2 py-1 bg-black/80 backdrop-blur-sm rounded-lg">
-                                                    <span className="text-[10px] font-bold text-white uppercase tracking-wider">HIT</span>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Info */}
-                                        <div className="space-y-1 px-1">
-                                            <h3 className="text-[14px] font-medium leading-tight text-gray-800 line-clamp-2 min-h-[2.5em]">{product.name}</h3>
-                                            <div className="flex items-center justify-between mt-auto pt-1">
-                                                <p className="text-[16px] font-bold text-black">{product.price}</p>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.preventDefault()
-                                                        e.stopPropagation()
-                                                        if (isInCart(product.id)) {
-                                                            removeFromCart(product.id)
-                                                            toast.error("Удалено из корзины", { description: product.name })
-                                                        } else {
-                                                            addToCart(productData)
-                                                            toast.dismiss()
-                                                            toast.success("Добавлено в корзину", {
-                                                                description: product.name,
-                                                                duration: 2000
-                                                            })
-                                                        }
-                                                    }}
-                                                    className={cn(
-                                                        "w-8 h-8 rounded-full flex items-center justify-center active:scale-95 transition-all shadow-sm bg-black text-white hover:bg-gray-800"
-                                                    )}
-                                                >
-                                                    {isInCart(product.id) ? <Check size={14} strokeWidth={3} /> : <Plus size={14} />}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </Link>
+                                    <ProductCard
+                                        product={productData}
+                                        variant="grid"
+                                        isFavorite={isFav}
+                                        isInCart={isInCart(product.id)}
+                                        showFavorite
+                                        showCart
+                                        onFavoriteClick={() => {
+                                            toggleFavorite(forCart)
+                                            toast.dismiss()
+                                            toast.success(isFav ? "Удалено из избранного" : "Добавлено в избранное", {
+                                                description: product.name,
+                                                duration: 2000,
+                                            })
+                                        }}
+                                        onCartClick={() => {
+                                            if (isInCart(product.id)) {
+                                                removeFromCart(product.id)
+                                                toast.error("Удалено из корзины", { description: product.name })
+                                            } else {
+                                                addToCart(forCart)
+                                                toast.dismiss()
+                                                toast.success("Добавлено в корзину", {
+                                                    description: product.name,
+                                                    duration: 2000,
+                                                })
+                                            }
+                                        }}
+                                    />
                                 </motion.div>
                             )
                         })}

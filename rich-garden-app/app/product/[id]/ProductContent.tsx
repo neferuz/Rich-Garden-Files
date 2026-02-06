@@ -45,11 +45,11 @@ export default function ProductContent({ productId }: { productId: string }) {
             } catch (e) { gallery = [] }
 
             // Ensure main image is first
-            const mainImg = productData.image.startsWith('http') ? productData.image : `http://localhost:8000${productData.image}`
+            const mainImg = productData.image.startsWith('http') ? productData.image : `${productData.image}`
 
             // Normalize gallery images
             const galleryImagesParsed = gallery.map((img: string) =>
-                img.startsWith('http') ? img : `http://localhost:8000${img}`
+                img.startsWith('http') ? img : `${img}`
             )
 
             // Combine unique images
@@ -66,7 +66,7 @@ export default function ProductContent({ productId }: { productId: string }) {
                 .filter(p => String(p.id) !== productId && !p.is_ingredient && p.composition && p.composition !== "[]")
                 .map(p => ({
                     ...p,
-                    image: p.image.startsWith('http') ? p.image : `http://localhost:8000${p.image}`
+                    image: p.image.startsWith('http') ? p.image : `${p.image}`
                 }))
                 .slice(0, 4)
 

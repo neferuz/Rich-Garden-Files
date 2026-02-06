@@ -17,7 +17,7 @@ class Address(AddressBase):
     user_id: int
     created_at: datetime.datetime
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class TelegramUserBase(BaseModel):
     telegram_id: Optional[int] = None
@@ -33,12 +33,15 @@ class TelegramUserCreate(TelegramUserBase):
 class TelegramUser(TelegramUserBase):
     id: int
     created_at: datetime.datetime
+
+class PhoneUpdate(BaseModel):
+    phone_number: str
     addresses: List[Address] = [] 
     orders_count: int = 0
     total_spent: int = 0
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class RecentlyViewedBase(BaseModel):
     user_id: int
@@ -57,7 +60,7 @@ class RecentlyViewed(RecentlyViewedBase):
     # So the endpoint returns Product schema, not RecentlyViewed schema.
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class BroadcastRequest(BaseModel):
     text: str

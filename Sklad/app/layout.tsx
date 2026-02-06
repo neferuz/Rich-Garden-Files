@@ -1,8 +1,10 @@
 import type { Metadata } from 'next'
+import { usePathname } from 'next/navigation'
 import { Manrope } from 'next/font/google'
 import './globals.css'
 import Navbar from '@/components/Navbar'
 import BottomNav from '@/components/BottomNav'
+
 import { AuthProvider } from '@/context/AuthContext'
 import { TelegramProvider } from '@/components/providers/TelegramProvider'
 
@@ -30,7 +32,7 @@ export default function RootLayout({
       <head>
         <script src="https://telegram.org/js/telegram-web-app.js" async></script>
       </head>
-      <body className="min-h-screen bg-white font-sans">
+      <body className="min-h-screen bg-white font-sans overflow-y-auto">
         <AuthProvider>
           <TelegramProvider>
             <Toaster position="top-center" richColors />
@@ -44,4 +46,3 @@ export default function RootLayout({
     </html>
   )
 }
-

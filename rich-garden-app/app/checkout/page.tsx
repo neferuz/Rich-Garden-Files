@@ -36,6 +36,7 @@ export default function CheckoutPage() {
     const [tempAddress, setTempAddress] = useState({ title: 'Дом', street: '', details: '' })
 
     const [telegramUser, setTelegramUser] = useState<any>(null)
+    const [userProfile, setUserProfile] = useState<{ phone_number?: string } | null>(null)
 
     useEffect(() => {
         if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
@@ -52,7 +53,6 @@ export default function CheckoutPage() {
                 } as any).catch(console.error);
             }
         } else if (process.env.NODE_ENV === 'development') {
-            // Mock user for local testing
             const mockUser = { id: 12345678, first_name: 'Local Test' };
             setTelegramUser(mockUser);
             api.authTelegram({
@@ -64,9 +64,10 @@ export default function CheckoutPage() {
 
     useEffect(() => {
         if (telegramUser?.id) {
-            api.getAddresses(telegramUser.id).then(data => {
-                setSavedAddresses(data)
-            })
+            api.getAddresses(telegramUser.id).then(data => setSavedAddresses(data));
+            api.getUser(telegramUser.id).then(u => u && setUserProfile({ phone_number: u.phone_number ?? undefined }));
+        } else {
+            setUserProfile(null);
         }
     }, [telegramUser])
 
@@ -79,6 +80,9 @@ export default function CheckoutPage() {
     const [selectedExtras, setSelectedExtras] = useState<number[]>([]) // IDs of selected extras
     const [isOrderPlaced, setIsOrderPlaced] = useState(false)
     const [isPlacingOrder, setIsPlacingOrder] = useState(false)
+    const [clickPayUrl, setClickPayUrl] = useState<string | null>(null)
+    const [clickPayFallback, setClickPayFallback] = useState(false)
+    const [paymeReceiptId, setPaymeReceiptId] = useState<string | null>(null)
 
     useEffect(() => {
         api.getWowEffects().then(effects => {
@@ -88,6 +92,32 @@ export default function CheckoutPage() {
             setPostcardItem(active.find(e => e.category === 'postcard'))
         })
     }, [])
+
+    // Payme Subscribe API: polling статуса чека
+    useEffect(() => {
+        if (!paymeReceiptId) return
+        const interval = setInterval(async () => {
+            const status = await api.getPaymeReceiptStatus(paymeReceiptId)
+            if (status.paid) {
+                clearInterval(interval)
+                setPaymeReceiptId(null)
+                clearCart() // Очищаем корзину только после подтверждённой оплаты Payme
+                const duration = 3 * 1000
+                const animationEnd = Date.now() + duration
+                const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 100 }
+                const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min
+                const iv = setInterval(function () {
+                    const timeLeft = animationEnd - Date.now()
+                    if (timeLeft <= 0) return clearInterval(iv)
+                    const particleCount = 50 * (timeLeft / duration)
+                    confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }, colors: ['#000000', '#FFD700', '#FF1493'] })
+                    confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }, colors: ['#000000', '#FFD700', '#FF1493'] })
+                }, 250)
+                toast.success('Оплата прошла успешно!')
+            }
+        }, 2500)
+        return () => clearInterval(interval)
+    }, [paymeReceiptId])
 
     const { cartItems, totalPrice: basePrice, clearCart, isLoaded } = useCart()
 
@@ -104,7 +134,7 @@ export default function CheckoutPage() {
 
     // Redirect if empty
     useEffect(() => {
-        if (isLoaded && cartItems.length === 0 && !isOrderPlaced) {
+        if (typeof window !== 'undefined' && isLoaded && cartItems.length === 0 && !isOrderPlaced) {
             router.replace('/')
         }
     }, [isLoaded, cartItems, isOrderPlaced, router])
@@ -136,9 +166,10 @@ export default function CheckoutPage() {
                 addons: selectedExtras
             }
 
+            const phoneForOrder = userProfile?.phone_number || (telegramUser as any)?.phone_number || 'Уточнить';
             const orderData = {
                 customer_name: telegramUser?.first_name || 'Гость',
-                customer_phone: telegramUser?.phone_number || 'Уточнить',
+                customer_phone: phoneForOrder,
                 total_price: totalPrice,
                 telegram_id: telegramUser?.id,
                 address: address ? `${address.title}: ${address.street}${address.details ? `, ${address.details}` : ''}` : undefined,
@@ -157,22 +188,55 @@ export default function CheckoutPage() {
             const createdOrder = await api.createOrder(orderData)
 
             if (paymentMethod === 'click' || paymentMethod === 'payme') {
-                const returnUrl = typeof window !== 'undefined' ? `${window.location.origin}/orders` : 'http://localhost:3000/orders';
-                const invoice = paymentMethod === 'click'
-                    ? await api.createClickInvoice(createdOrder.id, totalPrice, returnUrl)
-                    : await api.createPaymeInvoice(createdOrder.id, totalPrice, returnUrl);
+                const ordersUrl = typeof window !== 'undefined' ? `${window.location.origin}/orders` : 'http://localhost:3000/orders';
+                const clickReturnUrl = 'https://t.me/rich_garden_bot?start=payment_done';
+                const returnUrl = paymentMethod === 'click' ? clickReturnUrl : ordersUrl;
+                const phoneForClick = userProfile?.phone_number || (telegramUser as any)?.phone_number;
+                const telegramId = telegramUser?.id ?? null;
 
-                if (invoice && (invoice.payment_url || invoice.url)) {
-                    clearCart();
-                    window.location.href = invoice.payment_url || invoice.url;
-                    return;
-                } else {
-                    const errorMsg = invoice?.error || `Ошибка создания счета ${paymentMethod}. Попробуйте позже или выберите другой способ оплаты.`;
+                if (paymentMethod === 'click') {
+                    const invoice = await api.createClickInvoice(createdOrder.id, totalPrice, returnUrl, phoneForClick, telegramId);
+                    console.log('[Click] createClickInvoice response:', { status: invoice?.status, payment_url: invoice?.payment_url, url: invoice?.url, invoice_id: invoice?.invoice_id, fallback: invoice?.fallback_pay_link });
+                    const clickSuccess = invoice && invoice.status === 'success' && (invoice.invoice_id != null || invoice.payment_url || invoice.url || invoice.fallback_pay_link);
+                    if (clickSuccess) {
+                        // Не очищаем корзину — только после успешной оплаты; при возврате назад покажем уведомление и оставим товары
+                        setIsOrderPlaced(true);
+                        setIsPlacingOrder(false);
+                        const payUrl = invoice.payment_url || invoice.url || 'https://click.uz';
+                        console.log('[Click] using payUrl:', payUrl);
+                        setClickPayUrl(payUrl);
+                        setClickPayFallback(Boolean(invoice.fallback_pay_link));
+                        return;
+                    }
+                    let errorMsg = invoice?.error || 'Ошибка создания счёта Click. Попробуйте позже или выберите другой способ оплаты.';
+                    if (typeof errorMsg === 'string' && /не является пользователем|not a click user/i.test(errorMsg))
+                        errorMsg = 'Этот номер не привязан к Click. Укажите номер с аккаунтом Click или выберите Payme / наличными.';
                     await api.deleteOrder(createdOrder.id);
                     alert(errorMsg);
                     setIsPlacingOrder(false);
                     return;
                 }
+
+                // Payme: Subscribe API (Mini App) — receipts.create + receipts.send, без редиректа
+                const receipt = await api.createPaymeReceipt(createdOrder.id, phoneForClick ?? undefined);
+                if (receipt?.status === 'success' && receipt?.receipt_id) {
+                    // Не очищаем корзину здесь — только когда опрос вернёт status.paid
+                    setIsOrderPlaced(true);
+                    setIsPlacingOrder(false);
+                    setPaymeReceiptId(receipt.receipt_id);
+                    return;
+                }
+                let errorMsg = receipt?.error || 'Ошибка создания чека Payme. Попробуйте позже или выберите другой способ оплаты.';
+                if (receipt?.error_code === -31001 || receipt?.error_type === 'service_unavailable') {
+                    errorMsg = 'Сервис Payme временно недоступен. Возможные причины:\n' +
+                        '• Касса не активирована для Subscribe API\n' +
+                        '• Временные проблемы на стороне Payme\n\n' +
+                        'Попробуйте позже или выберите другой способ оплаты (Click или наличные).';
+                }
+                await api.deleteOrder(createdOrder.id);
+                alert(errorMsg);
+                setIsPlacingOrder(false);
+                return;
             }
 
             setIsPlacingOrder(false)
@@ -484,7 +548,7 @@ export default function CheckoutPage() {
                 {/* Add-ons Section */}
                 <motion.section variants={itemVariants}>
                     <div className="flex items-center gap-3 mb-4 px-1">
-                        <h2 className="text-[22px] font-extrabold text-black leading-none">Дополнить</h2>
+                        <h2 className="text-[22px] font-extrabold text-black leading-none">Дополнительно</h2>
                     </div>
 
                     <div className="bg-white rounded-[32px] p-2 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] space-y-2">
@@ -704,6 +768,21 @@ export default function CheckoutPage() {
                         animate={{ opacity: 1 }}
                         className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-between p-6 pb-12 overflow-hidden"
                     >
+                        {/* Кнопка «Назад» на оверлее — при возврате без оплаты показываем уведомление, корзина не очищается */}
+                        {(clickPayUrl || paymeReceiptId) && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setClickPayUrl(null);
+                                    setPaymeReceiptId(null);
+                                    setIsOrderPlaced(false);
+                                    toast.error('Оплата не удалась', { description: 'Вы вернулись назад. Товары остались в корзине — можете оплатить снова.' });
+                                }}
+                                className="absolute top-6 left-5 z-20 w-11 h-11 flex items-center justify-center rounded-full bg-gray-100 text-black active:scale-90 transition-transform"
+                            >
+                                <ChevronLeft size={24} />
+                            </button>
+                        )}
                         {/* Dramatic Background Decorations */}
                         <motion.div
                             initial={{ scale: 0, opacity: 0 }}
@@ -719,53 +798,113 @@ export default function CheckoutPage() {
                         />
 
                         <div className="relative z-10 w-full flex flex-col items-center flex-1 justify-center mt-[-40px]">
-                            <motion.div
-                                initial={{ scale: 0, rotate: -45 }}
-                                animate={{ scale: 1, rotate: 0 }}
-                                transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.2 }}
-                                className="w-24 h-24 bg-black rounded-[32px] flex items-center justify-center mb-10 shadow-[0_20px_50px_rgba(0,0,0,0.15)]"
-                            >
-                                <Sparkles size={40} className="text-[#FFD700]" />
-                            </motion.div>
-
-                            <motion.h2
-                                initial={{ y: 20, opacity: 0 }}
-                                animate={{ y: 0, opacity: 1 }}
-                                transition={{ delay: 0.4 }}
-                                className="text-[38px] font-black text-black mb-4 leading-none text-center tracking-tighter lowercase"
-                            >
-                                ваш заказ<br />принят!
-                            </motion.h2>
-
-                            <motion.p
-                                initial={{ y: 20, opacity: 0 }}
-                                animate={{ y: 0, opacity: 1 }}
-                                transition={{ delay: 0.5 }}
-                                className="text-[17px] text-gray-400 font-medium text-center max-w-[280px] leading-relaxed lowercase"
-                            >
-                                мы уже начали собирать ваш прекрасный букет. за статусом можно следить в профиле.
-                            </motion.p>
+                            {clickPayUrl ? (
+                                <>
+                                    <motion.div
+                                        initial={{ scale: 0, opacity: 0 }}
+                                        animate={{ scale: 1, opacity: 1 }}
+                                        transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.2 }}
+                                        className="w-20 h-20 bg-[#00aeef]/10 rounded-[24px] flex items-center justify-center mb-8"
+                                    >
+                                        <CreditCard size={36} className="text-[#00aeef]" />
+                                    </motion.div>
+                                    <motion.h2
+                                        initial={{ y: 20, opacity: 0 }}
+                                        animate={{ y: 0, opacity: 1 }}
+                                        transition={{ delay: 0.3 }}
+                                        className="text-[28px] font-black text-black mb-3 leading-none text-center tracking-tighter lowercase"
+                                    >
+                                        счёт выставлен
+                                    </motion.h2>
+                                    <motion.p
+                                        initial={{ y: 20, opacity: 0 }}
+                                        animate={{ y: 0, opacity: 1 }}
+                                        transition={{ delay: 0.4 }}
+                                        className="text-[15px] text-gray-500 font-medium text-center max-w-[300px] leading-relaxed lowercase"
+                                    >
+                                        {clickPayFallback
+                                            ? 'по этому номеру нет аккаунта Click. нажмите кнопку ниже — откроется оплата картой на сайте Click.'
+                                            : 'в приложении Click пришло уведомление «Выставлен счёт…». нажмите кнопку ниже, откройте Click и оплатите счёт там.'}
+                                    </motion.p>
+                                </>
+                            ) : paymeReceiptId ? (
+                                <>
+                                    <motion.div
+                                        initial={{ scale: 0, opacity: 0 }}
+                                        animate={{ scale: 1, opacity: 1 }}
+                                        transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.2 }}
+                                        className="w-20 h-20 bg-[#00aeef]/10 rounded-[24px] flex items-center justify-center mb-8"
+                                    >
+                                        <CreditCard size={36} className="text-[#00aeef]" />
+                                    </motion.div>
+                                    <motion.h2
+                                        initial={{ y: 20, opacity: 0 }}
+                                        animate={{ y: 0, opacity: 1 }}
+                                        transition={{ delay: 0.3 }}
+                                        className="text-[28px] font-black text-black mb-3 leading-none text-center tracking-tighter lowercase"
+                                    >
+                                        ваш заказ принят!
+                                    </motion.h2>
+                                    <motion.p
+                                        initial={{ y: 20, opacity: 0 }}
+                                        animate={{ y: 0, opacity: 1 }}
+                                        transition={{ delay: 0.4 }}
+                                        className="text-[15px] text-gray-500 font-medium text-center max-w-[300px] leading-relaxed lowercase"
+                                    >
+                                        счёт выставлен в приложении Payme — пришло уведомление «Выставлен счёт…». нажмите кнопку ниже, откройте Payme и оплатите счёт там.
+                                    </motion.p>
+                                </>
+                            ) : (
+                                <>
+                                    <motion.div
+                                        initial={{ scale: 0, rotate: -45 }}
+                                        animate={{ scale: 1, rotate: 0 }}
+                                        transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.2 }}
+                                        className="w-24 h-24 bg-black rounded-[32px] flex items-center justify-center mb-10 shadow-[0_20px_50px_rgba(0,0,0,0.15)]"
+                                    >
+                                        <Sparkles size={40} className="text-[#FFD700]" />
+                                    </motion.div>
+                                    <motion.h2
+                                        initial={{ y: 20, opacity: 0 }}
+                                        animate={{ y: 0, opacity: 1 }}
+                                        transition={{ delay: 0.4 }}
+                                        className="text-[38px] font-black text-black mb-4 leading-none text-center tracking-tighter lowercase"
+                                    >
+                                        ваш заказ<br />принят!
+                                    </motion.h2>
+                                    <motion.p
+                                        initial={{ y: 20, opacity: 0 }}
+                                        animate={{ y: 0, opacity: 1 }}
+                                        transition={{ delay: 0.5 }}
+                                        className="text-[17px] text-gray-400 font-medium text-center max-w-[280px] leading-relaxed lowercase"
+                                    >
+                                        мы уже начали собирать ваш прекрасный букет. за статусом можно следить в профиле.
+                                    </motion.p>
+                                </>
+                            )}
                         </div>
 
                         <div className="relative z-10 w-full space-y-6">
-                            <motion.div
-                                initial={{ y: 20, opacity: 0 }}
-                                animate={{ y: 0, opacity: 1 }}
-                                transition={{ delay: 0.7 }}
-                                className="flex flex-col items-center gap-3"
-                            >
-                                <div className="flex -space-x-4">
-                                    {[1, 2, 3].map(i => (
-                                        <div key={i} className="w-12 h-12 rounded-full border-4 border-white bg-gray-50 flex items-center justify-center overflow-hidden">
-                                            <div className="w-full h-full bg-gradient-to-br from-pink-50 to-gray-50 flex items-center justify-center">
-                                                <Heart size={16} className="text-pink-200" />
+                            {!clickPayUrl && !paymeReceiptId && (
+                                <motion.div
+                                    initial={{ y: 20, opacity: 0 }}
+                                    animate={{ y: 0, opacity: 1 }}
+                                    transition={{ delay: 0.7 }}
+                                    className="flex flex-col items-center gap-3"
+                                >
+                                    <div className="flex -space-x-4">
+                                        {[1, 2, 3].map(i => (
+                                            <div key={i} className="w-12 h-12 rounded-full border-4 border-white bg-gray-50 flex items-center justify-center overflow-hidden">
+                                                <div className="w-full h-full bg-gradient-to-br from-pink-50 to-gray-50 flex items-center justify-center">
+                                                    <Heart size={16} className="text-pink-200" />
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
-                                <p className="text-[12px] text-gray-400 font-bold uppercase tracking-[0.2em]">с любовью</p>
-                                <h3 className="text-[26px] font-black text-black tracking-tighter lowercase leading-none">rich garden</h3>
-                            </motion.div>
+                                        ))}
+                                    </div>
+                                    <p className="text-[12px] text-gray-400 font-bold uppercase tracking-[0.2em]">с любовью</p>
+                                    <h3 className="text-[26px] font-black text-black tracking-tighter lowercase leading-none">rich garden</h3>
+                                </motion.div>
+                            )}
 
                             <motion.div
                                 initial={{ y: 40, opacity: 0 }}
@@ -773,19 +912,115 @@ export default function CheckoutPage() {
                                 transition={{ delay: 1 }}
                                 className="flex flex-col gap-3"
                             >
-                                <Link
-                                    href="/orders"
-                                    className="w-full h-[72px] bg-black rounded-[28px] text-white font-bold text-[17px] active:scale-[0.98] shadow-2xl shadow-black/20 transition-all flex items-center justify-center gap-3"
-                                >
-                                    <Box size={20} />
-                                    <span className="lowercase">мои заказы</span>
-                                </Link>
-                                <button
-                                    onClick={() => router.push('/')}
-                                    className="w-full h-[72px] bg-gray-50 rounded-[28px] text-black font-bold text-[17px] active:scale-[0.98] transition-all flex items-center justify-center lowercase"
-                                >
-                                    в каталог
-                                </button>
+                                {clickPayUrl && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const url = clickPayUrl || '';
+                                                if (!url) {
+                                                    console.error('[Click] URL пустой!');
+                                                    return;
+                                                }
+                                                
+                                                console.log('[Click] Открываю URL:', url);
+                                                
+                                                const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : null;
+                                                
+                                                try {
+                                                    if (tg?.openLink) {
+                                                        tg.openLink(url, { try_instant_view: false });
+                                                    } else if (tg?.openTelegramLink) {
+                                                        tg.openTelegramLink(url);
+                                                    } else {
+                                                        window.location.href = url;
+                                                    }
+                                                } catch (e) {
+                                                    console.error('[Click] Ошибка при открытии:', e);
+                                                    try { window.location.href = url; } catch (e2) { alert('Не удалось открыть Click. Скопируйте ссылку: ' + url); }
+                                                }
+                                            }}
+                                            className="w-full h-[72px] bg-[#00aeef] rounded-[28px] text-white font-bold text-[17px] active:scale-[0.98] shadow-xl transition-all flex items-center justify-center gap-3 lowercase"
+                                        >
+                                            <span>Открыть Click</span>
+                                            <ChevronRight size={20} />
+                                        </button>
+                                        <div className="w-full h-[72px] bg-teal-50 rounded-[28px] text-teal-700 font-medium text-[15px] flex items-center justify-center gap-2 lowercase border border-teal-200">
+                                            <span className="inline-block w-5 h-5 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+                                            проверяем статус оплаты…
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setClickPayUrl(null);
+                                                setIsOrderPlaced(false);
+                                                toast.error('Оплата не удалась', { description: 'Вы вернулись назад. Товары остались в корзине — можете оплатить снова.' });
+                                            }}
+                                            className="w-full h-[56px] bg-gray-100 rounded-[24px] text-gray-700 font-bold text-[15px] active:scale-[0.98] transition-all lowercase"
+                                        >
+                                            Вернуться к заказу
+                                        </button>
+                                    </>
+                                )}
+                                {paymeReceiptId && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const url = `https://checkout.paycom.uz/${paymeReceiptId}`;
+                                                const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : null;
+                                                try {
+                                                    if (tg?.openLink) {
+                                                        tg.openLink(url, { try_instant_view: false });
+                                                    } else if (tg?.openTelegramLink) {
+                                                        tg.openTelegramLink(url);
+                                                    } else {
+                                                        window.location.href = url;
+                                                    }
+                                                } catch (e) {
+                                                    console.error('[Payme] Ошибка при открытии:', e);
+                                                    try { window.location.href = url; } catch (e2) { alert('Не удалось открыть счёт Payme. Перейдите: ' + url); }
+                                                }
+                                            }}
+                                            className="w-full h-[72px] bg-[#00aeef] rounded-[28px] text-white font-bold text-[17px] active:scale-[0.98] shadow-xl transition-all flex items-center justify-center gap-3 lowercase"
+                                        >
+                                            <span>Открыть Payme</span>
+                                            <ChevronRight size={20} />
+                                        </button>
+                                        <div className="w-full h-[72px] bg-teal-50 rounded-[28px] text-teal-700 font-medium text-[15px] flex items-center justify-center gap-2 lowercase border border-teal-200">
+                                            <span className="inline-block w-5 h-5 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+                                            проверяем статус оплаты…
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setPaymeReceiptId(null);
+                                                setIsOrderPlaced(false);
+                                                toast.error('Оплата не удалась', { description: 'Вы вернулись назад. Товары остались в корзине — можете оплатить снова.' });
+                                            }}
+                                            className="w-full h-[56px] bg-gray-100 rounded-[24px] text-gray-700 font-bold text-[15px] active:scale-[0.98] transition-all lowercase"
+                                        >
+                                            Вернуться к заказу
+                                        </button>
+                                    </>
+                                )}
+                                {!clickPayUrl && !paymeReceiptId && (
+                                    <>
+                                        <Link
+                                            href="/orders"
+                                            className="w-full h-[72px] bg-black rounded-[28px] text-white font-bold text-[17px] active:scale-[0.98] shadow-2xl shadow-black/20 transition-all flex items-center justify-center gap-3"
+                                        >
+                                            <Box size={20} />
+                                            <span className="lowercase">мои заказы</span>
+                                        </Link>
+                                        <button
+                                            onClick={() => router.push('/')}
+                                            className="w-full h-[72px] bg-gray-50 rounded-[28px] text-black font-bold text-[17px] active:scale-[0.98] transition-all flex items-center justify-center lowercase"
+                                        >
+                                            в каталог
+                                        </button>
+                                    </>
+                                )}
                             </motion.div>
                         </div>
                     </motion.div>

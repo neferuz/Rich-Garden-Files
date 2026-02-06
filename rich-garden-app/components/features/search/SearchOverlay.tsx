@@ -1,13 +1,12 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, X, TrendingUp, Clock, Heart, LayoutGrid, ChevronRight } from 'lucide-react';
-import Image from "next/image";
+import { Search, X, Clock, LayoutGrid, ChevronRight } from 'lucide-react';
 import Link from "next/link";
 import { api } from '@/lib/api';
 import { useFavorites } from '@/context/FavoritesContext';
 import { toast } from 'sonner';
-
 import { useProducts } from '@/hooks/useProducts';
+import { ProductCard, type ProductCardProduct } from '@/components/features/catalog/ProductCard';
 
 interface SearchOverlayProps {
     isOpen: boolean;
@@ -38,7 +37,7 @@ export function SearchOverlay({ isOpen, onClose, telegramUserId }: SearchOverlay
                         name: p.name,
                         category: p.category,
                         price: p.price_display || `${p.price_raw.toLocaleString()} сум`,
-                        image: p.image.startsWith('http') ? p.image : `http://localhost:8000${p.image}`,
+                        image: p.image.startsWith('http') ? p.image : `${p.image}`,
                         rating: p.rating,
                         isHit: p.is_hit,
                         isNew: p.is_new,
@@ -96,7 +95,7 @@ export function SearchOverlay({ isOpen, onClose, telegramUserId }: SearchOverlay
                                 value={query}
                                 onChange={(e) => setQuery(e.target.value)}
                                 placeholder="Что ищем?"
-                                className="w-full bg-transparent outline-none text-[32px] font-bold text-black placeholder:text-gray-300 pl-12"
+                                className="w-full bg-transparent outline-none text-[20px] font-bold text-black placeholder:text-gray-300 pl-12"
                             />
                         </motion.div>
 
@@ -114,49 +113,36 @@ export function SearchOverlay({ isOpen, onClose, telegramUserId }: SearchOverlay
 
                                 {filteredProducts.length > 0 ? (
                                     <div className="grid grid-cols-2 gap-4">
-                                        {filteredProducts.map((product) => (
-                                            <motion.div
-                                                key={product.id}
-                                                whileHover={{ y: -5 }}
-                                                className="group cursor-pointer"
-                                            >
-                                                <Link href={`/product/${product.id}`} onClick={() => handleProductClick(product.id as number)}>
-                                                    <div className="relative aspect-[3/4] rounded-[20px] overflow-hidden mb-3 bg-gray-50">
-                                                        <Image
-                                                            src={product.image.startsWith('http') ? product.image : `http://localhost:8000${product.image}`}
-                                                            alt={product.name}
-                                                            fill
-                                                            className="object-cover group-hover:scale-105 transition-transform duration-500"
-                                                        />
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.preventDefault();
-                                                                e.stopPropagation();
-                                                                // Use toggleFavorite from context, pass full product object
-                                                                toggleFavorite({
-                                                                    id: product.id,
-                                                                    name: product.name,
-                                                                    price: product.price,
-                                                                    image: product.image
-                                                                });
-                                                                toast.dismiss();
-                                                                toast.success(isFavorite(product.id) ? "Удалено из избранного" : "Добавлено в избранное", {
-                                                                    description: product.name,
-                                                                    duration: 2000,
-                                                                });
-                                                            }}
-                                                            className="absolute top-3 right-3 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center active:scale-90 transition-transform"
-                                                        >
-                                                            <Heart size={16} className={isFavorite(product.id) ? "fill-red-500 text-red-500" : "text-black hover:text-red-500 hover:fill-red-500 transition-colors"} />
-                                                        </button>
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <h3 className="text-[15px] font-medium leading-tight text-gray-900 line-clamp-2">{product.name}</h3>
-                                                        <p className="text-[17px] font-bold text-black">{product.price}</p>
-                                                    </div>
-                                                </Link>
-                                            </motion.div>
-                                        ))}
+                                        {filteredProducts.map((product) => {
+                                            const p: ProductCardProduct = {
+                                                id: product.id,
+                                                name: product.name,
+                                                price: product.price,
+                                                image: product.image?.startsWith('http') ? product.image : `${product.image}`,
+                                                isHit: product.isHit,
+                                                isNew: product.isNew,
+                                            };
+                                            return (
+                                                <motion.div key={product.id} whileHover={{ y: -4 }} className="rounded-[20px]">
+                                                    <ProductCard
+                                                        product={p}
+                                                        variant="grid"
+                                                        isFavorite={isFavorite(product.id)}
+                                                        showFavorite
+                                                        showCart={false}
+                                                        onCardClick={() => handleProductClick(product.id as number)}
+                                                        onFavoriteClick={() => {
+                                                            toggleFavorite({ id: product.id, name: product.name, price: product.price, image: product.image });
+                                                            toast.dismiss();
+                                                            toast.success(isFavorite(product.id) ? "Удалено из избранного" : "Добавлено в избранное", {
+                                                                description: product.name,
+                                                                duration: 2000,
+                                                            });
+                                                        }}
+                                                    />
+                                                </motion.div>
+                                            );
+                                        })}
                                     </div>
                                 ) : (
                                     <div className="text-center py-10 opacity-50">
@@ -206,38 +192,36 @@ export function SearchOverlay({ isOpen, onClose, telegramUserId }: SearchOverlay
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-4">
-                                            {recentProducts.slice(0, 4).map((product: any, idx: number) => (
-                                                <motion.div
-                                                    key={product.id}
-                                                    whileHover={{ y: -5 }}
-                                                    className="group cursor-pointer"
-                                                >
-                                                    <Link href={`/product/${product.id}`} onClick={() => handleProductClick(product.id)}>
-                                                        <div className="relative aspect-[3/4] rounded-[20px] overflow-hidden mb-3 bg-gray-50">
-                                                            <Image src={product.image} alt={product.name} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.preventDefault();
-                                                                    e.stopPropagation();
-                                                                    toggleFavorite({ id: product.id, name: product.name, price: product.price, image: product.image });
-                                                                    toast.dismiss();
-                                                                    toast.success(isFavorite(product.id) ? "Удалено из избранного" : "Добавлено в избранное", {
-                                                                        description: product.name,
-                                                                        duration: 2000,
-                                                                    });
-                                                                }}
-                                                                className="absolute top-3 right-3 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center active:scale-90 transition-transform"
-                                                            >
-                                                                <Heart size={16} className={isFavorite(product.id) ? "fill-red-500 text-red-500" : "text-black hover:text-red-500 hover:fill-red-500 transition-colors"} />
-                                                            </button>
-                                                        </div>
-                                                        <div className="space-y-1">
-                                                            <h3 className="text-[15px] font-medium leading-tight text-gray-900 line-clamp-2">{product.name}</h3>
-                                                            <p className="text-[17px] font-bold text-black">{product.price}</p>
-                                                        </div>
-                                                    </Link>
-                                                </motion.div>
-                                            ))}
+                                            {recentProducts.slice(0, 4).map((product: any) => {
+                                                const p: ProductCardProduct = {
+                                                    id: product.id,
+                                                    name: product.name,
+                                                    price: product.price,
+                                                    image: product.image,
+                                                    isHit: product.isHit,
+                                                    isNew: product.isNew,
+                                                };
+                                                return (
+                                                    <motion.div key={product.id} whileHover={{ y: -4 }} className="rounded-[20px]">
+                                                        <ProductCard
+                                                            product={p}
+                                                            variant="grid"
+                                                            isFavorite={isFavorite(product.id)}
+                                                            showFavorite
+                                                            showCart={false}
+                                                            onCardClick={() => handleProductClick(product.id)}
+                                                            onFavoriteClick={() => {
+                                                                toggleFavorite({ id: product.id, name: product.name, price: product.price, image: product.image });
+                                                                toast.dismiss();
+                                                                toast.success(isFavorite(product.id) ? "Удалено из избранного" : "Добавлено в избранное", {
+                                                                    description: product.name,
+                                                                    duration: 2000,
+                                                                });
+                                                            }}
+                                                        />
+                                                    </motion.div>
+                                                );
+                                            })}
                                         </div>
                                     </motion.div>
                                 )}

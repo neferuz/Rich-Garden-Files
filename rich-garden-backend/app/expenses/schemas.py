@@ -13,4 +13,4 @@ class ExpenseCreate(ExpenseBase):
 class Expense(ExpenseBase):
     id: int
     class Config:
-        orm_mode = True
+        from_attributes = True

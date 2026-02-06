@@ -249,6 +249,24 @@ export default function ProductDetails({ item, isModal = false, onClose }: { ite
                     // Unique images from both main 'image' and 'images' array
                     const allImages = Array.from(new Set([image, ...images])).filter(Boolean);
                     const currentImage = allImages[selectedImageIndex];
+                    
+                    // Normalize image URL - remove domain if present, keep relative paths
+                    const getImageSrc = (img: string | undefined) => {
+                        if (!img) return '';
+                        // If it's already a full URL, use it
+                        if (img.startsWith('http://') || img.startsWith('https://')) {
+                            return img;
+                        }
+                        // If it's a relative path starting with /static, use it as is
+                        if (img.startsWith('/static')) {
+                            return img;
+                        }
+                        // Otherwise, assume it's a relative path
+                        return img;
+                    };
+                    
+                    const imageSrc = getImageSrc(currentImage);
+                    console.log('Modal image debug:', { currentImage, imageSrc, allImages });
 
                     const handlePrev = (e: React.MouseEvent) => {
                         e.stopPropagation();
@@ -295,9 +313,17 @@ export default function ProductDetails({ item, isModal = false, onClose }: { ite
                                         className="relative w-full max-w-2xl aspect-square"
                                     >
                                         <img
-                                            src={currentImage?.startsWith("/static") ? `http://localhost:8000${currentImage}` : currentImage}
+                                            src={imageSrc}
                                             alt="Full Screen"
                                             className="w-full h-full object-contain rounded-3xl shadow-2xl"
+                                            onError={(e) => {
+                                                console.error('Image load error in modal:', { currentImage, imageSrc, attemptedSrc: (e.target as HTMLImageElement).src });
+                                                const target = e.target as HTMLImageElement;
+                                                target.style.display = 'none';
+                                            }}
+                                            onLoad={() => {
+                                                console.log('Image loaded successfully in modal:', imageSrc);
+                                            }}
                                         />
                                     </motion.div>
                                 </AnimatePresence>

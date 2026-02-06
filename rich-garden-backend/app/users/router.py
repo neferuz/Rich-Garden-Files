@@ -58,6 +58,18 @@ def get_recent_products(telegram_id: int, db: Session = Depends(get_db)):
 def add_recent_product(telegram_id: int, product_id: int, db: Session = Depends(get_db)):
     return service.add_recent_product(db, telegram_id, product_id)
 
+@router.get("/{telegram_id}", response_model=schemas.TelegramUser)
+def get_user(telegram_id: int, db: Session = Depends(get_db)):
+    user = service.get_user_by_telegram_id(db, telegram_id)
+    if not user:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
 @router.get("/{telegram_id}/orders", response_model=List[order_schemas.Order])
 def get_user_orders(telegram_id: int, db: Session = Depends(get_db)):
     return service.get_user_orders(db, telegram_id)
+
+@router.post("/{telegram_id}/phone")
+def update_user_phone(telegram_id: int, phone_data: schemas.PhoneUpdate, db: Session = Depends(get_db)):
+    return service.update_user_phone(db, telegram_id, phone_data.phone_number)

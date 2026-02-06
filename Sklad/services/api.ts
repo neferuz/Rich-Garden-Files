@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:8000/api';
+const API_URL = '/api';
 
 export type Product = {
     id: number;
@@ -179,6 +179,18 @@ export const api = {
         return res.json();
     },
 
+    async deleteOrder(id: string): Promise<void> {
+        const res = await fetch(`${API_URL}/orders/${id}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+        });
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error('Delete order error:', errorText);
+            throw new Error(`Failed to delete order: ${errorText}`);
+        }
+    },
+
     _mapOrder(o: any): Order {
         return {
             id: o.id.toString(),
@@ -234,6 +246,14 @@ export const api = {
         const data = await res.json();
 
         // Map backend orders to UI format
+        return data.map((o: any) => this._mapOrder(o));
+    },
+
+    /** Только оплаченные заказы — для страницы «Финансы» */
+    async getOrdersPaidOnly(): Promise<Order[]> {
+        const res = await fetch(`${API_URL}/orders?status=paid`);
+        if (!res.ok) throw new Error('Failed to fetch orders');
+        const data = await res.json();
         return data.map((o: any) => this._mapOrder(o));
     },
 
@@ -327,7 +347,24 @@ export const api = {
     // Employees
     async getEmployees(): Promise<Employee[]> {
         const res = await fetch(`${API_URL}/employees`);
-        if (!res.ok) throw new Error('Failed to fetch employees');
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error('Failed to fetch employees:', res.status, errorText);
+            throw new Error('Failed to fetch employees');
+        }
+        return res.json();
+    },
+
+    async checkEmployeeAccess(telegramId: number): Promise<Employee | null> {
+        const res = await fetch(`${API_URL}/employees/check/${telegramId}`);
+        if (res.status === 404) {
+            return null; // User is not an employee
+        }
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error('Failed to check employee access:', res.status, errorText);
+            throw new Error('Failed to check employee access');
+        }
         return res.json();
     },
 
@@ -337,7 +374,12 @@ export const api = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(employee),
         });
-        if (!res.ok) throw new Error('Failed to create employee');
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error('Failed to create employee:', res.status, errorText);
+            const errorData = await res.json().catch(() => ({ detail: errorText }));
+            throw new Error(errorData.detail || 'Failed to create employee');
+        }
         return res.json();
     },
 

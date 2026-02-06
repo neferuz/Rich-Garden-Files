@@ -2,7 +2,7 @@
 
 import { Order, api } from "@/services/api"
 import Link from "next/link"
-import { ArrowLeft, Clock, MapPin, Phone, CheckCircle2, AlertCircle, Truck, XCircle, ShoppingBag, X, MessageSquare, User, ChevronRight } from "lucide-react"
+import { ArrowLeft, Clock, MapPin, Phone, CheckCircle2, AlertCircle, Truck, XCircle, ShoppingBag, X, MessageSquare, User, ChevronRight, MoreVertical, Trash2, AlertTriangle } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
@@ -19,6 +19,9 @@ export default function OrderDetails({ order, isModal = false, onClose }: OrderD
     const [isLoading, setIsLoading] = useState(false)
     const [selectedImage, setSelectedImage] = useState<string | null>(null)
     const [isClosing, setIsClosing] = useState(false)
+    const [isMenuOpen, setIsMenuOpen] = useState(false)
+    const [isDeleting, setIsDeleting] = useState(false)
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
 
     useEffect(() => {
         setLocalOrder(order)
@@ -26,7 +29,8 @@ export default function OrderDetails({ order, isModal = false, onClose }: OrderD
 
     useEffect(() => {
         if (isModal) {
-            document.body.style.overflow = 'hidden'
+            // Не блокируем скролл body, так как модал имеет свой скролл
+            // document.body.style.overflow = 'hidden'
         }
         return () => {
             document.body.style.overflow = 'unset'
@@ -55,6 +59,34 @@ export default function OrderDetails({ order, isModal = false, onClose }: OrderD
         }
     }
 
+    const handleDelete = async () => {
+        setIsDeleting(true)
+        try {
+            console.log('Deleting order:', localOrder.id)
+            await api.deleteOrder(String(localOrder.id))
+            console.log('Order deleted successfully')
+            
+            // Close modal first
+            setIsDeleteConfirmOpen(false)
+            setIsMenuOpen(false)
+            
+            // Then redirect and force reload
+            if (isModal && onClose) {
+                onClose()
+            }
+            
+            // Force navigation and reload
+            router.push('/orders')
+            setTimeout(() => {
+                window.location.href = '/orders'
+            }, 100)
+        } catch (e) {
+            console.error('Delete error:', e)
+            alert(`Ошибка при удалении заказа: ${e instanceof Error ? e.message : 'Неизвестная ошибка'}`)
+            setIsDeleting(false)
+        }
+    }
+
     // Helpers
     const getStatusInfo = (status: string) => {
         switch (status) {
@@ -78,7 +110,7 @@ export default function OrderDetails({ order, isModal = false, onClose }: OrderD
         : "min-h-screen bg-gray-50/50 pb-32 font-sans"
 
     const contentClasses = isModal
-        ? "w-full sm:max-w-md max-h-[90vh] bg-[#F2F3F5] overflow-y-auto rounded-t-[32px] sm:rounded-[32px] shadow-2xl relative"
+        ? "w-full sm:max-w-md max-h-[90vh] bg-[#F2F3F5] overflow-y-auto overscroll-contain rounded-t-[32px] sm:rounded-[32px] shadow-2xl relative touch-pan-y -webkit-overflow-scrolling-touch"
         : "bg-[#F2F3F5] min-h-screen pb-32"
 
     const displayPhone = (order.clientPhone === 'Уточнить' || order.clientPhone === 'Не указан' || order.clientPhone === 'Clarify') && order.user?.phone_number
@@ -93,11 +125,11 @@ export default function OrderDetails({ order, isModal = false, onClose }: OrderD
                 initial={isModal ? { y: "100%" } : { y: 0 }}
                 animate={isModal ? { y: isClosing ? "100%" : "0%" } : { y: 0 }}
                 transition={{ type: "spring", damping: 30, stiffness: 300 }}
-                drag={isModal ? "y" : false}
+                drag={false}
                 dragConstraints={{ top: 0, bottom: 0 }}
                 dragElastic={{ top: 0, bottom: 0.2 }}
                 onDragEnd={(_, info) => {
-                    if (isModal) {
+                    if (isModal && false) {
                         if (info.offset.y > 150 || info.velocity.y > 500) {
                             handleClose()
                         }
@@ -124,7 +156,35 @@ export default function OrderDetails({ order, isModal = false, onClose }: OrderD
                         </span>
                     </div>
 
-                    <div className="w-10" /> {/* Spacer for centering */}
+                    <div className="relative">
+                        <button
+                            onClick={() => setIsMenuOpen(!isMenuOpen)}
+                            className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-gray-200 text-gray-500 hover:bg-gray-100 transition-colors"
+                        >
+                            <MoreVertical size={20} />
+                        </button>
+                        
+                        {isMenuOpen && (
+                            <>
+                                <div
+                                    className="fixed inset-0 z-10"
+                                    onClick={() => setIsMenuOpen(false)}
+                                />
+                                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 z-20 overflow-hidden">
+                                    <button
+                                        onClick={() => {
+                                            setIsMenuOpen(false)
+                                            setIsDeleteConfirmOpen(true)
+                                        }}
+                                        className="w-full px-4 py-3 flex items-center gap-3 text-red-600 hover:bg-red-50 transition-colors"
+                                    >
+                                        <Trash2 size={18} />
+                                        <span className="font-medium">Удалить</span>
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
 
                 <div className="p-4 flex flex-col gap-4">
@@ -332,11 +392,10 @@ export default function OrderDetails({ order, isModal = false, onClose }: OrderD
                 </div>
 
                 {/* Sticky Actions Footer */}
-                {['new', 'processing', 'shipping'].includes(localOrder.status) && (
+                {['new', 'pending_payment', 'paid', 'processing', 'shipping'].includes(localOrder.status) && (
                     <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 z-30 sm:absolute sm:rounded-b-[32px]">
-                        {/* ... existing buttons ... */}
                         <div className="flex gap-3 max-w-md mx-auto">
-                            {localOrder.status === 'new' && (
+                            {(localOrder.status === 'new' || localOrder.status === 'pending_payment' || localOrder.status === 'paid') && (
                                 <>
                                     <button
                                         onClick={() => handleStatusUpdate('cancelled')}
@@ -407,6 +466,37 @@ export default function OrderDetails({ order, isModal = false, onClose }: OrderD
                     </div>
                 )
             }
+
+            {/* Confirm Delete Modal */}
+            {isDeleteConfirmOpen && (
+                <div className="fixed inset-0 z-[300] bg-black/50 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-200">
+                    <div className="bg-white w-full max-w-xs rounded-[32px] p-6 shadow-2xl text-center animate-in zoom-in-95 duration-200">
+                        <div className="w-16 h-16 rounded-full bg-red-100 text-red-500 flex items-center justify-center mx-auto mb-4">
+                            <AlertTriangle size={32} />
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">Удалить заказ?</h3>
+                        <p className="text-sm text-gray-500 font-medium mb-6">
+                            Вы уверены, что хотите удалить заказ #{localOrder.id}? Это действие нельзя отменить.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setIsDeleteConfirmOpen(false)}
+                                disabled={isDeleting}
+                                className="flex-1 h-12 rounded-2xl bg-gray-100 font-bold text-gray-700 hover:bg-gray-200 transition-colors disabled:opacity-50"
+                            >
+                                Отмена
+                            </button>
+                            <button
+                                onClick={handleDelete}
+                                disabled={isDeleting}
+                                className="flex-1 h-12 rounded-2xl bg-red-500 font-bold text-white shadow-lg shadow-red-500/20 hover:bg-red-600 active:scale-95 transition-all disabled:opacity-50"
+                            >
+                                {isDeleting ? 'Удаление...' : 'Удалить'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     )
 }

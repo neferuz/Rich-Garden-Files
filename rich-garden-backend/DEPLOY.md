@@ -67,6 +67,16 @@ services:
     depends_on:
       - backend
 
+  # Group Bot: callback'и от кнопок «В сборку», «В путь» и т.д. в сообщениях о заказах в группе
+  bot-group:
+    build: ./rich-garden-backend
+    command: python run_bot_group.py
+    environment:
+      - TELEGRAM_GROUP_BOT_TOKEN=...
+      - API_URL=http://backend:8000/api
+    depends_on:
+      - backend
+
   # Customer App
   webapp:
     build: ./rich-garden-app

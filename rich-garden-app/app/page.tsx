@@ -67,7 +67,7 @@ export default function ShopPage() {
         const catProducts = getProductsByCategory(catName);
         if (catProducts.length === 0) return null;
 
-        const catSlug = catProducts[0].category?.toLowerCase() || catName.toLowerCase();
+        const catSlug = catProducts[0]?.category?.toLowerCase() || catName.toLowerCase();
 
         return (
           <ProductRow

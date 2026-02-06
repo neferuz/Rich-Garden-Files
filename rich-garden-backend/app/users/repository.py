@@ -115,3 +115,13 @@ def delete_user(db: Session, user_id: int):
         db.commit()
         return True
     return False
+
+def get_users_purchased(db: Session):
+    from app.orders.models import Order
+    # Users who have at least one order
+    return db.query(models.TelegramUser).join(models.TelegramUser.orders).distinct().all()
+
+def get_users_leads(db: Session):
+    from app.orders.models import Order
+    # Users who have NO orders (LEFT JOIN + WHERE NULL)
+    return db.query(models.TelegramUser).outerjoin(models.TelegramUser.orders).filter(Order.id == None).all()

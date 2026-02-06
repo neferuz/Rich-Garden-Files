@@ -3,11 +3,11 @@
 import { useFavorites } from '@/context/FavoritesContext'
 import { BottomNav } from '@/components/BottomNav'
 import Link from 'next/link'
-import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { Heart, ShoppingBag, ChevronLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { ProductCard, type ProductCardProduct } from '@/components/features/catalog/ProductCard'
 
 export default function FavoritesPage() {
     const { favorites, toggleFavorite } = useFavorites()
@@ -86,52 +86,38 @@ export default function FavoritesPage() {
                 </div>
             </header>
 
-            {/* Content */}
-            <div className="px-4 pt-6">
-                <div className="grid grid-cols-2 gap-x-3 gap-y-8">
-                    {favorites.map((product) => (
-                        <div key={product.id} className="group relative">
-                            <Link href={`/product/${product.id}`}>
-                                {/* Image Card */}
-                                <div className="relative aspect-[3/4] rounded-[20px] overflow-hidden bg-gray-50 mb-3">
-                                    <Image
-                                        src={product.image}
-                                        alt={product.name}
-                                        fill
-                                        className="object-cover group-hover:scale-105 transition-transform duration-500"
-                                    />
-
-                                    {/* Remove Button (Heart) */}
-                                    <button
-                                        onClick={(e) => {
-                                            e.preventDefault()
-                                            toggleFavorite(product)
-                                            toast.dismiss()
-                                            toast.success("Удалено из избранного", {
-                                                description: product.name,
-                                                duration: 2000
-                                            })
-                                        }}
-                                        className="absolute top-3 right-3 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center active:scale-90 transition-transform"
-                                    >
-                                        <Heart size={16} className="text-red-500 fill-red-500" />
-                                    </button>
-
-                                    {product.isHit && (
-                                        <div className="absolute top-3 left-3 px-2 py-1 bg-black/80 backdrop-blur-sm rounded-lg">
-                                            <span className="text-[10px] font-bold text-white uppercase tracking-wider">HIT</span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Info */}
-                                <div className="space-y-1">
-                                    <h3 className="text-[15px] font-medium leading-tight text-gray-900 line-clamp-2">{product.name}</h3>
-                                    <p className="text-[17px] font-bold text-black">{product.price}</p>
-                                </div>
-                            </Link>
-                        </div>
-                    ))}
+            {/* Content — единые карточки */}
+            <div className="px-4 md:px-6 pt-6">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
+                    {favorites.map((product) => {
+                        const p: ProductCardProduct = {
+                            id: product.id,
+                            name: product.name,
+                            price: product.price,
+                            image: product.image,
+                            isHit: product.isHit,
+                            isNew: product.isNew,
+                        };
+                        return (
+                            <div key={product.id}>
+                                <ProductCard
+                                    product={p}
+                                    variant="grid"
+                                    isFavorite
+                                    showFavorite
+                                    showCart={false}
+                                    onFavoriteClick={() => {
+                                        toggleFavorite(product);
+                                        toast.dismiss();
+                                        toast.success("Удалено из избранного", {
+                                            description: product.name,
+                                            duration: 2000,
+                                        });
+                                    }}
+                                />
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
 

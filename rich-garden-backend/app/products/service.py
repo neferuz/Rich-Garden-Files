@@ -3,6 +3,7 @@ from fastapi import HTTPException
 from . import repository, schemas, models
 from app.expenses import service as expense_service
 from app.expenses import schemas as expense_schemas
+from app.users.models import RecentlyViewed
 import datetime
 
 def get_products(db: Session, category: str = None, search: str = None):
@@ -76,8 +77,15 @@ def delete_product(db: Session, product_id: int):
             except Exception as e:
                 print(f"Error restoring ingredients: {e}")
 
-        # Manually delete history to avoid foreign key constraints
-        # Using direct model access to ensure it works even if repository isn't reloaded
+        # Manually delete related records to avoid foreign key constraints
+        # Delete recently_viewed records
+        try:
+            db.query(RecentlyViewed).filter(RecentlyViewed.product_id == product_id).delete()
+            db.commit()
+        except Exception as e:
+            print(f"Error deleting recently_viewed: {e}")
+
+        # Delete product history
         try:
             db.query(models.ProductHistory).filter(models.ProductHistory.product_id == product_id).delete()
             db.commit()

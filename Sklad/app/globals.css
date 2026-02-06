@@ -46,10 +46,11 @@
 
     /* Native App Feel */
     -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-    overscroll-behavior-y: none;
+    touch-action: pan-y;
+    overscroll-behavior-y: auto;
     -webkit-user-select: none;
     user-select: none;
+    overflow-y: auto;
   }
 }
 

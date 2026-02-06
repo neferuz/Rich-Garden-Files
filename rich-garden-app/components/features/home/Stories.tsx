@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Image from "next/image";
 import { ChevronRight, X, Loader2, Play } from 'lucide-react';
 import { api, Story } from "@/lib/api";
 import { useTelegramAuth } from "@/hooks/useTelegramAuth";
@@ -13,7 +12,10 @@ export function Stories() {
     const activeStory = activeStoryIndex !== null ? stories[activeStoryIndex] : null;
 
     useEffect(() => {
-        api.getStories(telUser?.telegram_id).then(setStories).finally(() => setLoading(false));
+        api.getStories(telUser?.telegram_id)
+            .then((data) => setStories(Array.isArray(data) ? data : []))
+            .catch(() => setStories([]))
+            .finally(() => setLoading(false));
     }, [telUser?.telegram_id]);
 
     useEffect(() => {
@@ -70,11 +72,14 @@ export function Stories() {
                                     "w-full h-full rounded-full border-[2px] border-white overflow-hidden relative shadow-inner",
                                     story.bg_color || "bg-pink-100"
                                 )}>
-                                    <Image
-                                        src={story.thumbnail_url.startsWith('http') ? story.thumbnail_url : `http://127.0.0.1:8000${story.thumbnail_url}`}
+                                    <img
+                                        src={story.thumbnail_url.startsWith('http') ? story.thumbnail_url : story.thumbnail_url}
                                         alt={story.title}
-                                        fill
-                                        className="object-cover"
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                            const target = e.target as HTMLImageElement;
+                                            target.src = '/placeholder.png';
+                                        }}
                                     />
                                     <div className="absolute inset-0 bg-white/10 backdrop-blur-[0.5px]"></div>
                                 </div>
@@ -131,20 +136,26 @@ export function Stories() {
                                 <div className="w-full h-full relative pointer-events-none">
                                     {activeStory.content_type === 'video' ? (
                                         <video
-                                            src={activeStory.content_url.startsWith('http') ? activeStory.content_url : `http://127.0.0.1:8000${activeStory.content_url}`}
+                                            src={activeStory.content_url.startsWith('http') ? activeStory.content_url : activeStory.content_url}
                                             className="w-full h-full object-cover"
                                             autoPlay
                                             muted
                                             playsInline
-                                            loop
+                                            onEnded={handleNextStory}
+                                            onError={(e) => {
+                                                const target = e.target as HTMLVideoElement;
+                                                target.style.display = 'none';
+                                            }}
                                         />
                                     ) : (
-                                        <Image
-                                            src={activeStory.content_url.startsWith('http') ? activeStory.content_url : `http://127.0.0.1:8000${activeStory.content_url}`}
+                                        <img
+                                            src={activeStory.content_url.startsWith('http') ? activeStory.content_url : activeStory.content_url}
                                             alt={activeStory.title}
-                                            fill
-                                            className="object-cover"
-                                            priority
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                const target = e.target as HTMLImageElement;
+                                                target.src = '/placeholder.png';
+                                            }}
                                         />
                                     )}
                                 </div>
@@ -179,11 +190,14 @@ export function Stories() {
                             <div className="absolute top-8 left-4 right-4 z-30 flex items-center justify-between mt-2 pointer-events-none">
                                 <div className="flex items-center gap-3 pointer-events-auto">
                                     <div className="w-9 h-9 rounded-full border border-white/20 relative overflow-hidden bg-white/20 backdrop-blur-md">
-                                        <Image
-                                            src={activeStory.thumbnail_url.startsWith('http') ? activeStory.thumbnail_url : `http://127.0.0.1:8000${activeStory.thumbnail_url}`}
+                                        <img
+                                            src={activeStory.thumbnail_url.startsWith('http') ? activeStory.thumbnail_url : activeStory.thumbnail_url}
                                             alt={activeStory.title}
-                                            fill
-                                            className="object-cover"
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                const target = e.target as HTMLImageElement;
+                                                target.src = '/placeholder.png';
+                                            }}
                                         />
                                     </div>
                                     <div className="flex flex-col">

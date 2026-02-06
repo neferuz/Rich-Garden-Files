@@ -24,14 +24,21 @@ def create(db: Session, order: schemas.OrderCreate):
             db_order.user_id = user.id
             if db_order.customer_name == "Гость" or not db_order.customer_name:
                 db_order.customer_name = user.first_name
-            
+            # Телефон из бота (user.phone_number), если в заказе нет валидного
+            no_phone = not (db_order.customer_phone and "".join(filter(str.isdigit, db_order.customer_phone or "")))
+            if no_phone and user.phone_number:
+                db_order.customer_phone = user.phone_number
+
     db.add(db_order)
     db.commit()
     db.refresh(db_order)
     return db_order
 
-def get_all(db: Session):
-    return db.query(models.Order).options(joinedload(models.Order.user)).order_by(models.Order.created_at.desc()).all()
+def get_all(db: Session, status: str = None):
+    q = db.query(models.Order).options(joinedload(models.Order.user)).order_by(models.Order.created_at.desc())
+    if status:
+        q = q.filter(models.Order.status == status)
+    return q.all()
 
 def get_by_id(db: Session, order_id: int):
     return db.query(models.Order).filter(models.Order.id == order_id).first()

@@ -8,6 +8,7 @@ import { useState, useEffect } from "react"
 export default function BottomNav() {
     const pathname = usePathname()
     const [isMenuOpen, setIsMenuOpen] = useState(false)
+    const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
 
     // Lock body scroll when menu is open
     useEffect(() => {
@@ -21,8 +22,55 @@ export default function BottomNav() {
         }
     }, [isMenuOpen])
 
-    // Hide BottomNav on Shop page, Expense creation, Supply page, and Broadcast page
-    if (pathname?.startsWith("/shop") || pathname === "/finance/expense" || pathname === "/warehouse/supply" || pathname === "/flowers/new" || pathname === "/clients/broadcast") {
+    // Hide BottomNav when keyboard is open (input focused)
+    useEffect(() => {
+        const handleFocus = (e: FocusEvent) => {
+            const target = e.target as HTMLElement
+            if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+                setIsKeyboardOpen(true)
+            }
+        }
+
+        const handleBlur = () => {
+            // Delay to check if another input is focused
+            setTimeout(() => {
+                const activeElement = document.activeElement as HTMLElement
+                if (!activeElement || (activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA' && !activeElement.isContentEditable)) {
+                    setIsKeyboardOpen(false)
+                }
+            }, 100)
+        }
+
+        // Listen for viewport changes (Telegram WebApp)
+        const handleViewportChange = () => {
+            if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
+                const tg = window.Telegram.WebApp
+                const viewportHeight = tg.viewportHeight || window.innerHeight
+                const isVisible = viewportHeight < window.outerHeight * 0.75 // If viewport is significantly smaller, keyboard is likely open
+                setIsKeyboardOpen(isVisible)
+            }
+        }
+
+        document.addEventListener('focusin', handleFocus)
+        document.addEventListener('focusout', handleBlur)
+        
+        if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
+            const tg = window.Telegram.WebApp
+            tg.onEvent('viewportChanged', handleViewportChange)
+        }
+
+        return () => {
+            document.removeEventListener('focusin', handleFocus)
+            document.removeEventListener('focusout', handleBlur)
+            if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
+                const tg = window.Telegram.WebApp
+                tg.offEvent('viewportChanged', handleViewportChange)
+            }
+        }
+    }, [])
+
+    // Hide BottomNav on Shop page, Expense creation, Supply page, Broadcast page, and Checkout page
+    if (pathname?.startsWith("/shop") || pathname === "/finance/expense" || pathname === "/warehouse/supply" || pathname === "/flowers/new" || pathname === "/clients/broadcast" || pathname === "/pos/checkout") {
         return null
     }
 
@@ -56,7 +104,7 @@ export default function BottomNav() {
                 />
             )}
 
-            <div className="fixed inset-x-0 mx-auto w-full max-w-[350px] z-[50] transition-all duration-300" style={{ bottom: 'calc(1.5rem + var(--tg-content-safe-area-bottom) + var(--tg-safe-area-bottom))' }}>
+            <div className={`fixed inset-x-0 mx-auto w-full max-w-[350px] z-[50] transition-all duration-300 ${isKeyboardOpen ? 'opacity-0 pointer-events-none translate-y-full' : 'opacity-100 pointer-events-auto'}`} style={{ bottom: 'calc(1.5rem + var(--tg-content-safe-area-bottom) + var(--tg-safe-area-bottom))' }}>
                 <div className="bg-white/90 backdrop-blur-2xl border border-white/40 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] rounded-[32px] px-6 py-3.5 flex items-center justify-between ring-1 ring-black/5">
 
                     {/* Home */}

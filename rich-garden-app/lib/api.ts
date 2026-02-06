@@ -164,6 +164,12 @@ export const api = {
         return res.json();
     },
 
+    async getUser(telegramId: number): Promise<TelegramUser | null> {
+        const res = await fetch(`${API_URL}/user/${telegramId}`, { cache: 'no-store' });
+        if (!res.ok) return null;
+        return res.json();
+    },
+
     async getUserOrders(telegramId: number): Promise<Order[]> {
         const res = await fetch(`${API_URL}/user/${telegramId}/orders`, { cache: 'no-store' });
         if (!res.ok) return [];
@@ -242,7 +248,7 @@ export const api = {
     },
 
     async logStoryView(storyId: number, userId: number): Promise<void> {
-        await fetch(`${API_URL} / stories / ${storyId} /view/${userId}/`, {
+        await fetch(`${API_URL}/stories/${storyId}/view/${userId}/`, {
             method: 'POST'
         });
     },
@@ -253,15 +259,22 @@ export const api = {
         return res.json();
     },
 
-    async createClickInvoice(orderId: number, amount: number, returnUrl: string) {
+    async createClickInvoice(orderId: number, amount: number, returnUrl: string, phoneNumber?: string | null, telegramId?: number | null) {
+        const body: { order_id: number; amount: number; return_url: string; phone_number?: string; telegram_id?: number } = {
+            order_id: orderId,
+            amount: amount,
+            return_url: returnUrl
+        };
+        if (phoneNumber && phoneNumber.replace(/\D/g, '').length >= 9) {
+            body.phone_number = phoneNumber;
+        }
+        if (telegramId) {
+            body.telegram_id = telegramId;
+        }
         const res = await fetch(`${API_URL}/payments/create-click-invoice`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                order_id: orderId,
-                amount: amount,
-                return_url: returnUrl
-            }),
+            body: JSON.stringify(body),
         });
         if (!res.ok) {
             const errorText = await res.text();
@@ -276,6 +289,7 @@ export const api = {
         return res.json();
     },
 
+    /** Merchant API (web): редирект на checkout.paycom.uz */
     async createPaymeInvoice(orderId: number, amount: number, returnUrl: string) {
         const res = await fetch(`${API_URL}/payments/create-payme-invoice`, {
             method: 'POST',
@@ -291,11 +305,63 @@ export const api = {
             console.error('Failed to create payme invoice', errorText);
             try {
                 const json = JSON.parse(errorText);
-                return { error: json.detail || "Unknown error" };
+                if (json.detail) {
+                    if (typeof json.detail === 'object' && json.detail.error) {
+                        return {
+                            error: json.detail.error,
+                            error_code: json.detail.error_code,
+                            error_type: json.detail.error_type,
+                            suggestion: json.detail.suggestion
+                        };
+                    }
+                    return { error: json.detail };
+                }
+                return { error: json.error || "Unknown error" };
             } catch (e) {
                 return { error: errorText };
             }
         }
+        return res.json();
+    },
+
+    /** Subscribe API (Mini App): receipts.create + receipts.send, без редиректа. Оплата в приложении Payme. */
+    async createPaymeReceipt(orderId: number, phoneNumber?: string) {
+        const body: { order_id: number; phone_number?: string } = { order_id: orderId };
+        if (phoneNumber && phoneNumber.replace(/\D/g, '').length >= 9) {
+            body.phone_number = phoneNumber;
+        }
+        const res = await fetch(`${API_URL}/payments/create-payme-receipt`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error('Failed to create payme receipt', errorText);
+            try {
+                const json = JSON.parse(errorText);
+                if (json.detail) {
+                    if (typeof json.detail === 'object' && json.detail.error) {
+                        return {
+                            error: json.detail.error,
+                            error_code: json.detail.error_code,
+                            error_type: json.detail.error_type,
+                        };
+                    }
+                    return { error: json.detail };
+                }
+                return { error: json.error || errorText };
+            } catch (e) {
+                return { error: errorText };
+            }
+        }
+        return res.json();
+    },
+
+    /** Subscribe API: проверка статуса чека. paid === true — оплата прошла. */
+    async getPaymeReceiptStatus(receiptId: string): Promise<{ status: string; paid: boolean; state?: number; error?: string }> {
+        const res = await fetch(`${API_URL}/payments/payme-receipt-status/${encodeURIComponent(receiptId)}`);
+        if (!res.ok) return { status: 'error', paid: false, error: await res.text() };
         return res.json();
     },
 

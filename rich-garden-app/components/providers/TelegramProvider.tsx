@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { usePathname, useRouter } from "next/navigation"
 
 declare global {
     interface Window {
@@ -10,6 +11,8 @@ declare global {
 
 export function TelegramProvider({ children }: { children: React.ReactNode }) {
     const [isReady, setIsReady] = useState(false)
+    const pathname = usePathname()
+    const router = useRouter()
 
     useEffect(() => {
         // Check if running in Telegram WebApp
@@ -18,12 +21,16 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
 
             // Expand to full height
             tg.expand()
-            if (tg.requestFullscreen) {
-                tg.requestFullscreen()
-            }
 
             // Set ready state
             tg.ready()
+            
+            // Запретить сворачивание свайпом вниз
+            tg.disableVerticalSwipes()
+            
+            // Включить confirm при закрытии через крестик
+            tg.enableClosingConfirmation()
+            
             setIsReady(true)
 
             // Function to update CSS variables based on Telegram env
@@ -59,7 +66,11 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
                 }
 
                 // 4. Header Color & BG
-                if (tg.setHeaderColor) tg.setHeaderColor('#ffffff')
+                // Клиентское приложение: черный навбар с белым текстом
+                if (tg.setHeaderColor) {
+                    // Telegram автоматически выберет белый текст для черного фона
+                    tg.setHeaderColor('#000000')
+                }
                 if (tg.setBackgroundColor) tg.setBackgroundColor('#ffffff')
             }
 
@@ -84,6 +95,36 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
             }
         }
     }, [])
+
+    // Управление кнопкой "Назад" в Telegram навбаре
+    useEffect(() => {
+        if (typeof window !== 'undefined' && window.Telegram && window.Telegram.WebApp) {
+            const tg = window.Telegram.WebApp
+            const backButton = tg.BackButton
+
+            if (backButton) {
+                // Показываем кнопку "Назад" если не на главной странице
+                if (pathname && pathname !== '/') {
+                    backButton.show()
+                    
+                    // Обработчик нажатия - возврат назад
+                    const handleBack = () => {
+                        router.back()
+                    }
+                    
+                    backButton.onClick(handleBack)
+                    
+                    return () => {
+                        backButton.offClick(handleBack)
+                        backButton.hide()
+                    }
+                } else {
+                    // Скрываем кнопку на главной странице
+                    backButton.hide()
+                }
+            }
+        }
+    }, [pathname, router])
 
     return (
         <>

@@ -12,10 +12,10 @@ from app.orders import models as order_models
 from app.expenses import models as expense_models
 from app.calendar import models as calendar_models
 from app.employees import models as employee_models
-from app.employees import models as employee_models
 from app.stories import models as story_models
 from app.banners import models as banner_models
 from app.wow_effects import models as wow_effects_models
+from app.payments import models as payment_models  # PaymeTransaction
 
 # Import routers
 from app.products import router as products_router
@@ -39,7 +39,12 @@ app = FastAPI(title="Rich Garden API")
 # Create tables
 # user_models.Base.metadata.create_all(bind=database.engine)
 # Better: use database.Base if they all share it.
-database.Base.metadata.create_all(bind=database.engine)
+# Wrap in try-except to prevent startup failure if DB is temporarily unavailable
+try:
+    database.Base.metadata.create_all(bind=database.engine)
+except Exception as e:
+    import logging
+    logging.warning(f"Could not create database tables on startup: {e}")
 
 # Setup CORS
 origins = [
@@ -49,6 +54,9 @@ origins = [
     "http://127.0.0.1:3000",
     "http://127.0.0.1:3001",
     "http://127.0.0.1:3002",
+    "https://24eywa.ru",
+    "https://www.24eywa.ru",
+    "https://admin.24eywa.ru",
 ]
 
 app.add_middleware(
@@ -82,7 +90,6 @@ app.include_router(expenses_router.router, prefix="/api")
 app.include_router(search_router.router, prefix="/api")
 app.include_router(common_router.router) # /api/upload is hardcoded in router
 app.include_router(calendar_router.router, prefix="/api")
-app.include_router(employees_router.router, prefix="/api")
 app.include_router(employees_router.router, prefix="/api")
 app.include_router(stories_router.router) # Prefix /api/stories is inside router
 app.include_router(banners_router.router, prefix="/api")

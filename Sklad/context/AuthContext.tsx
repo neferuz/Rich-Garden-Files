@@ -89,15 +89,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 setUser(telegramUser)
 
-                // 2. FORCE OWNER (Temporary Bypass)
-                setEmployee({
-                    id: 999,
-                    telegram_id: telegramUser.id,
-                    full_name: `${telegramUser.first_name} ${telegramUser.last_name || ''}`,
-                    role: 'owner',
-                    is_active: true,
-                    created_at: new Date().toISOString()
-                })
+                // 2. Check if user is an employee
+                try {
+                    const employeeData = await api.checkEmployeeAccess(telegramUser.id)
+                    if (employeeData) {
+                        setEmployee(employeeData)
+                        console.log("Auth: Employee found:", employeeData.role)
+                    } else {
+                        console.log("Auth: User is not an employee")
+                        setEmployee(null)
+                    }
+                } catch (err: any) {
+                    // 404 means user is not an employee (expected)
+                    if (err.message?.includes('404') || err.message?.includes('Not an employee')) {
+                        console.log("Auth: User is not an employee (404)")
+                        setEmployee(null)
+                    } else {
+                        console.error("Auth: Error checking employee access:", err)
+                        setEmployee(null)
+                    }
+                }
+                
                 console.log("Auth: Initialization complete")
             } catch (err) {
                 console.error("Auth: Error during initialization:", err)

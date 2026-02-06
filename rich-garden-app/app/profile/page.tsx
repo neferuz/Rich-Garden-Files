@@ -8,6 +8,28 @@ import { useState, useEffect } from 'react'
 import { api } from '@/lib/api'
 import { useFavorites } from '@/context/FavoritesContext'
 
+function formatPhoneNumber(phone: string | null | undefined): string | null {
+    if (!phone) return null;
+    
+    // Remove all non-digit characters except +
+    const cleaned = phone.replace(/[^\d+]/g, '');
+    
+    // Format Uzbek phone numbers: +998901234567 -> +998 90 123 45 67
+    if (cleaned.startsWith('+998')) {
+        const match = cleaned.match(/^\+998(\d{2})(\d{3})(\d{2})(\d{2})$/);
+        if (match) {
+            return `+998 ${match[1]} ${match[2]} ${match[3]} ${match[4]}`;
+        }
+        // Fallback for other formats
+        if (cleaned.length >= 13) {
+            return `+998 ${cleaned.slice(4, 6)} ${cleaned.slice(6, 9)} ${cleaned.slice(9, 11)} ${cleaned.slice(11, 13)}`;
+        }
+    }
+    
+    // Return original if can't format
+    return phone;
+}
+
 export default function ProfilePage() {
     const [telegramUser, setTelegramUser] = useState<any>(null)
     const [activeOrders, setActiveOrders] = useState(0)
@@ -15,34 +37,50 @@ export default function ProfilePage() {
     const { favorites } = useFavorites()
 
     useEffect(() => {
-        if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.initDataUnsafe?.user) {
-            const tg = (window as any).Telegram.WebApp;
-            const user = tg.initDataUnsafe?.user;
+        const loadUser = async () => {
+            if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.initDataUnsafe?.user) {
+                const tg = (window as any).Telegram.WebApp;
+                const user = tg.initDataUnsafe?.user;
 
-            if (user) {
+                if (user) {
+                    // Get user data from API to get phone number
+                    try {
+                        const userData = await api.getUser(user.id);
+                        setTelegramUser({
+                            first_name: user.first_name,
+                            username: user.username,
+                            photo_url: user.photo_url,
+                            phone_number: userData?.phone_number || null
+                        });
+                        fetchOrders(user.id)
+                    } catch (error) {
+                        // Fallback if API fails
+                        setTelegramUser({
+                            first_name: user.first_name,
+                            username: user.username,
+                            photo_url: user.photo_url,
+                            phone_number: null
+                        });
+                        fetchOrders(user.id)
+                    }
+                }
+            } else if (process.env.NODE_ENV === 'development') {
+                // Mock user
                 setTelegramUser({
-                    first_name: user.first_name,
-                    username: user.username,
-                    photo_url: user.photo_url,
-                    phone_number: (user as any).phone_number
-                });
-                fetchOrders(user.id)
+                    first_name: "Local Test",
+                    username: "dev_user",
+                    phone_number: "+998 90 123 45 67"
+                })
+                fetchOrders(12345678)
             }
-        } else if (process.env.NODE_ENV === 'development') {
-            // Mock user
-            setTelegramUser({
-                first_name: "Local Test",
-                username: "dev_user",
-                phone_number: "+998 90 123 45 67"
-            })
-            fetchOrders(12345678)
         }
+        loadUser()
     }, [])
 
     const fetchOrders = (userId: number) => {
         api.getUserOrders(userId).then(orders => {
             setTotalOrders(orders.length)
-            const activeCount = orders.filter(o => ['new', 'processing', 'shipping'].includes(o.status)).length
+            const activeCount = orders.filter(o => ['new', 'processing', 'shipping', 'pending_payment', 'paid'].includes(o.status)).length
             setActiveOrders(activeCount)
         }).catch(err => console.error("Failed to load orders", err))
     }
@@ -96,7 +134,7 @@ export default function ProfilePage() {
                             {telegramUser?.first_name || 'Гость'}
                         </h2>
                         <p className="text-gray-400 text-[15px] font-medium mb-6">
-                            {telegramUser?.phone_number || 'Нет номера'}
+                            {formatPhoneNumber(telegramUser?.phone_number) || 'Нет номера'}
                         </p>
 
                         <div className="grid grid-cols-2 gap-4 w-full py-4 border-t border-gray-50 mt-2">

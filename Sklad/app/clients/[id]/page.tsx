@@ -260,7 +260,7 @@ function ClientDetailsContent({ params }: { params: { id: string } }) {
 
     useEffect(() => {
         const clientId = parseInt(params.id)
-        fetch('http://localhost:8000/api/clients')
+        fetch('/api/clients')
             .then(res => res.json())
             .then(async (data: Client[]) => {
                 const found = data.find(c => c.id === clientId)

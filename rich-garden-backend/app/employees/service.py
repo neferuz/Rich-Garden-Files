@@ -14,17 +14,19 @@ def get_employee(db: Session, employee_id: int):
 async def create_employee(db: Session, employee: schemas.EmployeeCreate):
     from app.services import telegram
     
-    # Check current user photo
-    photo_url = await telegram.get_chat_photo(employee.telegram_id)
-    
+    # Check if employee already exists
     existing = repository.get_by_telegram_id(db, employee.telegram_id)
     if existing:
         raise HTTPException(status_code=400, detail="Employee with this Telegram ID already exists")
     
-    # We need to pass photo_url to repository. 
-    # Since EmployeeCreate might not have photo_url field or it is optional.
-    # We can pass it as extra arg to repository or modify the model if it allows.
-    # Let's verify repository signature.
+    # Try to get user photo (optional, don't fail if it fails)
+    photo_url = None
+    try:
+        photo_url = await telegram.get_chat_photo(employee.telegram_id)
+    except Exception as e:
+        print(f"Warning: Could not get photo for user {employee.telegram_id}: {e}")
+        # Continue without photo
+    
     return repository.create_employee(db, employee, photo_url=photo_url)
 
 def update_employee(db: Session, employee_id: int, employee_update: schemas.EmployeeUpdate):

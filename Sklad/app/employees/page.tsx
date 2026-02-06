@@ -158,7 +158,8 @@ function Drawer({ children, onClose, title }: { children: React.ReactNode, onClo
     const [isClosing, setIsClosing] = useState(false)
 
     useEffect(() => {
-        document.body.style.overflow = 'hidden'
+        // Не блокируем скролл body, так как модал имеет свой скролл
+        // document.body.style.overflow = 'hidden'
         return () => {
             document.body.style.overflow = 'unset'
         }
@@ -172,20 +173,13 @@ function Drawer({ children, onClose, title }: { children: React.ReactNode, onClo
     return (
         <div className={`fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-end justify-center sm:items-center p-0 sm:p-4 transition-opacity duration-300 ${isClosing ? 'opacity-0' : 'opacity-100'}`} onClick={handleClose}>
             <motion.div
-                className="w-full sm:max-w-md max-h-[90vh] bg-[#F2F3F5] overflow-y-auto rounded-t-[32px] sm:rounded-[32px] shadow-2xl relative"
+                className="w-full sm:max-w-md max-h-[90vh] bg-[#F2F3F5] overflow-y-auto overscroll-contain rounded-t-[32px] sm:rounded-[32px] shadow-2xl relative touch-pan-y -webkit-overflow-scrolling-touch"
                 onClick={e => e.stopPropagation()}
                 initial={{ y: "100%" }}
                 animate={{ y: isClosing ? "100%" : "0%" }}
                 exit={{ y: "100%" }}
                 transition={{ type: "spring", damping: 30, stiffness: 300 }}
-                drag="y"
-                dragConstraints={{ top: 0, bottom: 0 }}
-                dragElastic={{ top: 0, bottom: 0.2 }}
-                onDragEnd={(_, info) => {
-                    if (info.offset.y > 150 || info.velocity.y > 500) {
-                        handleClose()
-                    }
-                }}
+                drag={false}
             >
                 {/* Header */}
                 <div className="bg-white/80 backdrop-blur-md px-6 py-4 sticky top-0 z-20 flex items-center justify-between border-b border-gray-100/50">

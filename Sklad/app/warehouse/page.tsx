@@ -19,6 +19,7 @@ function WarehouseContent() {
     const [searchQuery, setSearchQuery] = useState("")
     const [isLowStockOnly, setIsLowStockOnly] = useState(false)
     const [isSearchOpen, setIsSearchOpen] = useState(false)
+    const [imageErrors, setImageErrors] = useState<Set<number>>(new Set())
 
     // Category Management State
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
@@ -259,14 +260,16 @@ function WarehouseContent() {
                 >
                     {/* Visual Centerpiece */}
                     <div className="flex-1 flex items-center justify-center relative min-h-[4rem] w-full">
-                        {item.image && item.image !== "/placeholder.png" ? (
+                        {item.image && item.image !== "/placeholder.png" && !imageErrors.has(item.id) ? (
                             <div className="absolute inset-2 z-10 transition-transform duration-500 group-hover:scale-105 group-hover:-rotate-3">
-                                <Image
-                                    src={item.image.startsWith("/static") ? `http://localhost:8000${item.image}` : item.image}
+                                <img
+                                    src={item.image}
                                     alt={item.name}
-                                    fill
-                                    sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
-                                    className="object-contain drop-shadow-xl"
+                                    className="w-full h-full object-contain drop-shadow-xl"
+                                    onError={(e) => {
+                                        // Image load error - silently handle
+                                        setImageErrors(prev => new Set(prev).add(item.id));
+                                    }}
                                 />
                             </div>
                         ) : (

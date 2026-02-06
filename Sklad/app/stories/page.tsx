@@ -56,8 +56,8 @@ export default function StoriesManagementPage() {
         setSelectedStory(story)
         setTitle(story.title)
         setContentType(story.content_type)
-        setThumbnailUrl(`http://127.0.0.1:8000${story.thumbnail_url}`)
-        setContentUrl(`http://127.0.0.1:8000${story.content_url}`)
+        setThumbnailUrl(story.thumbnail_url.startsWith('http') ? story.thumbnail_url : story.thumbnail_url)
+        setContentUrl(story.content_url.startsWith('http') ? story.content_url : story.content_url)
         setModalState('edit')
     }
 
@@ -229,16 +229,24 @@ export default function StoriesManagementPage() {
                                     {story.content_type === 'video' ? (
                                         <div className="w-full h-full relative">
                                             <video
-                                                src={`http://127.0.0.1:8000${story.content_url}`}
+                                                src={story.content_url.startsWith('http') ? story.content_url : story.content_url}
                                                 className="w-full h-full object-cover"
                                                 muted loop playsInline
+                                                onError={(e) => {
+                                                    const target = e.target as HTMLVideoElement;
+                                                    target.style.display = 'none';
+                                                }}
                                             />
                                         </div>
                                     ) : (
                                         <img
-                                            src={`http://127.0.0.1:8000${story.content_url}`}
+                                            src={story.content_url.startsWith('http') ? story.content_url : story.content_url}
                                             alt={story.title}
                                             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                            onError={(e) => {
+                                                const target = e.target as HTMLImageElement;
+                                                target.src = '/placeholder.png';
+                                            }}
                                         />
                                     )}
 
@@ -615,18 +623,26 @@ export default function StoriesManagementPage() {
                             <div className="w-full h-full relative">
                                 {selectedStory.content_type === 'video' ? (
                                     <video
-                                        src={`http://127.0.0.1:8000${selectedStory.content_url}`}
+                                        src={selectedStory.content_url.startsWith('http') ? selectedStory.content_url : selectedStory.content_url}
                                         className="w-full h-full object-cover"
                                         autoPlay
                                         muted
                                         loop
                                         playsInline
+                                        onError={(e) => {
+                                            const target = e.target as HTMLVideoElement;
+                                            target.style.display = 'none';
+                                        }}
                                     />
                                 ) : (
                                     <img
-                                        src={`http://127.0.0.1:8000${selectedStory.content_url}`}
+                                        src={selectedStory.content_url.startsWith('http') ? selectedStory.content_url : selectedStory.content_url}
                                         alt={selectedStory.title}
                                         className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                            const target = e.target as HTMLImageElement;
+                                            target.src = '/placeholder.png';
+                                        }}
                                     />
                                 )}
                             </div>

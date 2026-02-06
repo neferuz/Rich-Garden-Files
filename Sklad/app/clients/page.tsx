@@ -33,7 +33,7 @@ export default function ClientsPage() {
     const [sortOrder, setSortOrder] = useState<'new' | 'old'>('new')
 
     useEffect(() => {
-        fetch('http://localhost:8000/api/clients')
+        fetch('/api/clients')
             .then(res => res.json())
             .then(data => {
                 setClients(data)

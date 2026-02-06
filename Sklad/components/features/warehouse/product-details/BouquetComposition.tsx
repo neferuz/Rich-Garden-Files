@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import Image from "next/image";
+// import Image from "next/image"; // Removed to fix client-side errors
 import { Sprout, Plus, Minus, Trash2, Search, X, Check } from "lucide-react";
 import { api } from "@/services/api";
 import { motion, AnimatePresence } from "framer-motion";
@@ -47,14 +47,22 @@ export function BouquetComposition({
     useEffect(() => {
         if (availableProducts.length > 0) {
             const map: Record<string, string> = {};
-            availableProducts.forEach((p: any) => { map[p.id] = p.image });
+            availableProducts.forEach((p: any) => { 
+                if (p.image) {
+                    map[p.id] = p.image;
+                }
+            });
             setIngredientsImages(map);
         } else {
             const loadImages = async () => {
                 try {
                     const allProducts = await api.getProducts();
                     const map: Record<string, string> = {};
-                    allProducts.forEach((p: any) => { map[p.id] = p.image });
+                    allProducts.forEach((p: any) => { 
+                        if (p.image) {
+                            map[p.id] = p.image;
+                        }
+                    });
                     setIngredientsImages(map);
                 } catch (e) {
                     console.error("Failed to load ingredient images", e);
@@ -92,7 +100,7 @@ export function BouquetComposition({
 
                 {displayComposition.map((c: any, idx: number) => {
                     const imgUrl = ingredientsImages[c.id] || c.image;
-                    const finalImg = imgUrl ? (imgUrl.startsWith("http") ? imgUrl : `http://localhost:8000${imgUrl.startsWith("/") ? "" : "/"}${imgUrl}`) : null;
+                    const finalImg = imgUrl ? (imgUrl.startsWith("http") ? imgUrl : imgUrl) : null;
 
                     return (
                         <div key={c.id || idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl border border-gray-100 group">
@@ -102,7 +110,7 @@ export function BouquetComposition({
                                     className={`w-12 h-12 rounded-xl bg-[#2e6fef]/10 flex items-center justify-center text-[#2e6fef] shrink-0 overflow-hidden relative border border-gray-100 ${finalImg ? 'cursor-pointer active:scale-95 transition-transform' : ''}`}
                                 >
                                     {finalImg ? (
-                                        <Image src={finalImg} alt={c.name} fill className="object-cover" />
+                                        <img src={finalImg} alt={c.name} className="w-full h-full object-cover" onError={(e) => { const target = e.target as HTMLImageElement; target.style.display = 'none'; }} />
                                     ) : (
                                         <div className="text-xs font-bold">{idx + 1}</div>
                                     )}
@@ -226,11 +234,11 @@ export function BouquetComposition({
                                             >
                                                 <div className="w-14 h-14 rounded-[18px] bg-gray-100 relative overflow-hidden shrink-0 border border-gray-50">
                                                     {p.image ? (
-                                                        <Image
-                                                            src={p.image.startsWith("/static") ? `http://localhost:8000${p.image}` : p.image}
+                                                        <img
+                                                            src={p.image.startsWith("/static") ? p.image : (p.image.startsWith("http") ? p.image : p.image)}
                                                             alt={p.name}
-                                                            fill
-                                                            className="object-cover"
+                                                            className="w-full h-full object-cover"
+                                                            onError={(e) => { const target = e.target as HTMLImageElement; target.style.display = 'none'; }}
                                                         />
                                                     ) : (
                                                         <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-gray-400 uppercase">Фото</div>
@@ -292,11 +300,11 @@ export function BouquetComposition({
                                     animate={{ scale: 1, opacity: 1 }}
                                     className="relative w-full h-full"
                                 >
-                                    <Image
+                                    <img
                                         src={previewImage}
                                         alt="Preview"
-                                        fill
-                                        className="object-contain rounded-2xl drop-shadow-2xl"
+                                        className="w-full h-full object-contain rounded-2xl drop-shadow-2xl"
+                                        onError={(e) => { const target = e.target as HTMLImageElement; target.src = "/placeholder.png"; }}
                                     />
                                 </motion.div>
                             </div>

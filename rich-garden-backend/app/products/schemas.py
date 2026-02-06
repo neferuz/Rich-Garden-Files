@@ -59,7 +59,7 @@ class ProductHistoryCreate(ProductHistoryBase):
 class ProductHistory(ProductHistoryBase):
     id: int
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class Product(ProductBase):
     id: int
@@ -67,9 +67,9 @@ class Product(ProductBase):
     history: List[ProductHistory] = []
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ProductWithHistory(Product):
     history: List[ProductHistory] = []
     class Config:
-        orm_mode = True
+        from_attributes = True

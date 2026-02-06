@@ -1,41 +1,89 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { ChevronLeft, ShoppingBag, Clock, Truck, CheckCircle, XCircle, Package, ArrowRight, MapPin, CreditCard, MessageSquare, Calendar, ChevronDown, ShoppingBasket, Info, Sparkles, Gift, ChevronRight } from "lucide-react"
+import { ChevronLeft, ShoppingBag, Clock, Truck, CheckCircle, XCircle, Package, ArrowRight, MapPin, CreditCard, MessageSquare, Calendar, ChevronDown, ShoppingBasket, Info, Sparkles, Gift, ChevronRight, X } from "lucide-react"
 import Link from "next/link"
 import { api, Order } from "@/lib/api"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { BottomNav } from "@/components/BottomNav"
 import { cn } from "@/lib/utils"
-import Image from "next/image"
 
-export default function OrdersPage() {
+function OrdersPageContent() {
     const [orders, setOrders] = useState<Order[]>([])
     const [loading, setLoading] = useState(true)
+    const [userId, setUserId] = useState<number | null>(null)
     const [activeTab, setActiveTab] = useState<'active' | 'history'>('active')
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
     const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+    const [clickPaymentBanner, setClickPaymentBanner] = useState<'success' | 'fail' | null>(null)
     const router = useRouter()
+    const searchParams = useSearchParams()
 
     useEffect(() => {
         if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.initDataUnsafe?.user) {
             const tg = (window as any).Telegram.WebApp;
-            const userId = tg.initDataUnsafe?.user?.id;
-
-            if (userId) {
-                fetchOrders(userId)
+            const uid = tg.initDataUnsafe?.user?.id;
+            if (uid) {
+                setUserId(uid)
+                fetchOrders(uid)
             } else {
                 setLoading(false)
             }
         } else if (process.env.NODE_ENV === 'development') {
-            // Mock user for local testing
-            const mockUserId = 12345678;
+            const mockUserId = 12345678
+            setUserId(mockUserId)
             fetchOrders(mockUserId)
         } else {
             setLoading(false)
         }
     }, [])
+
+    // Периодическое обновление заказов — при смене статуса в админке клиент видит изменения (оплачен → в сборке → в пути → выполнен)
+    useEffect(() => {
+        if (!userId) return
+        const interval = setInterval(() => {
+            api.getUserOrders(userId).then(data => {
+                setOrders(data)
+                if (selectedOrder) {
+                    const updated = data.find((o: Order) => o.id === selectedOrder.id)
+                    if (updated) setSelectedOrder(updated)
+                }
+            }).catch(() => {})
+        }, 25_000)
+        return () => clearInterval(interval)
+    }, [userId, selectedOrder])
+
+    // Click return: /orders?paymentStatus=...&paymentId=...
+    useEffect(() => {
+        const status = searchParams.get('paymentStatus')
+        const hasPaymentParams = status != null || searchParams.get('paymentId') != null
+        if (!hasPaymentParams) return
+        const n = parseInt(status || '', 10)
+        if (!Number.isNaN(n)) {
+            setClickPaymentBanner(n >= 2 ? 'success' : 'fail')
+        }
+        const uid = (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.id) ?? (process.env.NODE_ENV === 'development' ? 12345678 : null)
+        if (uid) {
+            setUserId(uid)
+            fetchOrders(uid)
+        }
+        router.replace('/orders', { scroll: false })
+    }, [searchParams])
+
+    // Fix background when modal is open
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            if (isDetailsOpen) {
+                document.body.style.overflow = 'hidden'
+            } else {
+                document.body.style.overflow = 'unset'
+            }
+            return () => {
+                document.body.style.overflow = 'unset'
+            }
+        }
+    }, [isDetailsOpen])
 
     const fetchOrders = (userId: number) => {
         api.getUserOrders(userId).then(data => {
@@ -47,7 +95,7 @@ export default function OrdersPage() {
         })
     }
 
-    const activeOrders = orders.filter(o => ['new', 'processing', 'shipping', 'pending_payment'].includes(o.status))
+    const activeOrders = orders.filter(o => ['new', 'processing', 'shipping', 'pending_payment', 'paid'].includes(o.status))
 
     const historyOrders = orders.filter(o => ['done', 'cancelled'].includes(o.status))
 
@@ -121,6 +169,53 @@ export default function OrdersPage() {
                 </div>
             </header>
 
+            {/* Click return banner */}
+            <AnimatePresence>
+                {clickPaymentBanner && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -12 }}
+                        className="px-4 pt-4"
+                    >
+                        <div className={cn(
+                            "rounded-2xl p-4 flex items-center justify-between gap-3",
+                            clickPaymentBanner === 'success' ? "bg-green-50 border border-green-200" : "bg-amber-50 border border-amber-200"
+                        )}>
+                            <div className="flex items-center gap-3">
+                                {clickPaymentBanner === 'success' ? (
+                                    <CheckCircle size={24} className="text-green-600 shrink-0" />
+                                ) : (
+                                    <XCircle size={24} className="text-amber-600 shrink-0" />
+                                )}
+                                <div>
+                                    <p className={cn(
+                                        "font-bold text-[15px] lowercase",
+                                        clickPaymentBanner === 'success' ? "text-green-800" : "text-amber-800"
+                                    )}>
+                                        {clickPaymentBanner === 'success' ? 'оплата прошла' : 'оплата не прошла'}
+                                    </p>
+                                    <p className={cn(
+                                        "text-[13px] lowercase mt-0.5",
+                                        clickPaymentBanner === 'success' ? "text-green-600" : "text-amber-600"
+                                    )}>
+                                        {clickPaymentBanner === 'success'
+                                            ? 'спасибо! заказ в обработке.'
+                                            : 'заказ ожидает оплаты. проверьте статус ниже или оформите заново.'}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setClickPaymentBanner(null)}
+                                className="p-2 rounded-full bg-white/80 hover:bg-white border border-black/10 shrink-0"
+                            >
+                                <X size={18} className="text-gray-500" />
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* List */}
             <div className="px-4 pt-6">
                 <AnimatePresence mode="popLayout">
@@ -165,12 +260,19 @@ export default function OrdersPage() {
                                         <div className="flex gap-2 overflow-x-auto no-scrollbar py-1 mb-4">
                                             {items.map((item: any, idx: number) => (
                                                 <div key={idx} className="relative w-14 h-14 min-w-[56px] rounded-[18px] bg-gray-50 border border-gray-100 overflow-hidden">
-                                                    <Image
-                                                        src={item.image && item.image.startsWith('http') ? item.image : `http://localhost:8000${item.image || ''}`}
-                                                        alt={item.name}
-                                                        fill
-                                                        className="object-cover"
-                                                    />
+                                                    {item.image ? (
+                                                        <img
+                                                            src={item.image.startsWith('http') ? item.image : item.image}
+                                                            alt={item.name}
+                                                            className="w-full h-full object-cover"
+                                                            onError={(e) => {
+                                                                const target = e.target as HTMLImageElement;
+                                                                target.src = '/placeholder.png';
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">?</div>
+                                                    )}
                                                     <div className="absolute inset-x-0 bottom-0 bg-black/60 backdrop-blur-sm py-0.5 text-center">
                                                         <span className="text-[10px] font-bold text-white leading-none">x{item.quantity}</span>
                                                     </div>
@@ -288,13 +390,20 @@ export default function OrdersPage() {
                                     <div className="space-y-3">
                                         {JSON.parse(selectedOrder.items).map((item: any, idx: number) => (
                                             <div key={idx} className="flex items-center gap-4 p-3 rounded-3xl bg-gray-50/50 border border-gray-100">
-                                                <div className="relative w-16 h-16 rounded-2xl overflow-hidden shrink-0">
-                                                    <Image
-                                                        src={item.image && item.image.startsWith('http') ? item.image : `http://localhost:8000${item.image || ''}`}
-                                                        alt={item.name}
-                                                        fill
-                                                        className="object-cover"
-                                                    />
+                                                <div className="relative w-16 h-16 rounded-2xl overflow-hidden shrink-0 bg-gray-100">
+                                                    {item.image ? (
+                                                        <img
+                                                            src={item.image.startsWith('http') ? item.image : item.image}
+                                                            alt={item.name}
+                                                            className="w-full h-full object-cover"
+                                                            onError={(e) => {
+                                                                const target = e.target as HTMLImageElement;
+                                                                target.src = '/placeholder.png';
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">?</div>
+                                                    )}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <h4 className="text-[15px] font-bold text-black leading-tight truncate lowercase">{item.name}</h4>
@@ -435,6 +544,21 @@ export default function OrdersPage() {
                 )}
             </AnimatePresence>
         </main>
+    )
+}
+
+export default function OrdersPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-[#f9fafb] p-6 space-y-6">
+                <div className="h-8 w-40 bg-gray-200 rounded-lg animate-pulse mb-8" />
+                {[1, 2, 3].map(i => (
+                    <div key={i} className="h-40 w-full bg-white rounded-[32px] border border-gray-100 animate-pulse" />
+                ))}
+            </div>
+        }>
+            <OrdersPageContent />
+        </Suspense>
     )
 }
 

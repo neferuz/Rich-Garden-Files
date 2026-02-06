@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import SearchBar from "@/components/SearchBar"
 import StatsCards from "@/components/StatsCards"
@@ -8,7 +8,7 @@ import OrderDetails from "@/components/OrderDetails"
 import ProtectedRoute from "@/components/ProtectedRoute"
 import { api, Order } from "@/services/api"
 
-export default function Home() {
+function HomeContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const orderId = searchParams.get('order')
@@ -45,5 +45,13 @@ export default function Home() {
         <OrderDetails order={selectedOrder} isModal={true} onClose={handleCloseModal} />
       )}
     </ProtectedRoute>
+  )
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <HomeContent />
+    </Suspense>
   )
 }

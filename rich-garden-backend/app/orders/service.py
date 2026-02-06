@@ -7,6 +7,7 @@ from app.services import telegram
 import json
 
 async def notify_new_order(db: Session, db_order: schemas.Order, telegram_id: int = None):
+    print(f"DEBUG notify_new_order: Called for order {db_order.id}, payment_method: {db_order.payment_method}")
     # Prepare data for notification
     items_detail = ""
     try:
@@ -26,11 +27,14 @@ async def notify_new_order(db: Session, db_order: schemas.Order, telegram_id: in
         else:
             items_detail = "Детали заказа: " + str(items)
     except Exception as e:
-        print(f"Error parsing items for notification: {e}")
+        print(f"ERROR: Error parsing items for notification: {e}")
+        import traceback
+        traceback.print_exc()
         items_detail = "Детали заказа не распознаны"
 
     # Send Notification to Admin Group
     try:
+        print(f"DEBUG notify_new_order: Preparing order_dict for order {db_order.id}")
         extras_data = {}
         if db_order.extras:
             try:
@@ -51,9 +55,12 @@ async def notify_new_order(db: Session, db_order: schemas.Order, telegram_id: in
         }
         
         # 1. Admin Notification
+        print(f"DEBUG notify_new_order: Calling send_order_notification for order {db_order.id}")
         msg_id = await telegram.send_order_notification(order_dict, items_detail)
+        print(f"DEBUG notify_new_order: send_order_notification returned message_id: {msg_id}")
         if msg_id:
             repository.update_telegram_message_id(db, db_order.id, msg_id)
+            print(f"DEBUG notify_new_order: Updated telegram_message_id for order {db_order.id}")
             
         # 2. Customer Receipt
         # Priority: Linked User -> Manual Telegram ID
@@ -62,7 +69,7 @@ async def notify_new_order(db: Session, db_order: schemas.Order, telegram_id: in
         if db_order.user_id:
             try:
                 from app.users import repository as user_repo
-                user = user_repo.get(db, db_order.user_id)
+                user = user_repo.get_by_id(db, db_order.user_id)
                 if user and user.telegram_id:
                      await telegram.send_customer_receipt(user.telegram_id, order_dict, items_detail)
                      sent_to_user = True
@@ -75,9 +82,13 @@ async def notify_new_order(db: Session, db_order: schemas.Order, telegram_id: in
 
         if msg_id:
             return msg_id
+        else:
+            print(f"ERROR notify_new_order: No message_id returned for order {db_order.id}")
             
     except Exception as e:
-        print(f"Error during order notification: {e}")
+        print(f"ERROR: Exception during order notification: {e}")
+        import traceback
+        traceback.print_exc()
     return None
 
 async def create_order(db: Session, order: schemas.OrderCreate):
@@ -93,13 +104,20 @@ async def create_order(db: Session, order: schemas.OrderCreate):
     
     # 2. Only notify immediately if it's CASH
     # For Click/Payme, notification will be sent after successful payment
-    if db_order.payment_method == 'cash':
+    payment_method = str(db_order.payment_method).lower().strip() if db_order.payment_method else None
+    print(f"DEBUG: Order created - ID: {db_order.id}, Payment method: '{db_order.payment_method}' (normalized: '{payment_method}')")
+    
+    if payment_method == 'cash':
+        print(f"DEBUG: Sending notification for cash order {db_order.id}")
         await notify_new_order(db, db_order, telegram_id)
+    else:
+        print(f"DEBUG: Skipping notification for order {db_order.id} (payment_method: '{payment_method}')")
+        print(f"DEBUG: Note: Online payments (click/payme) will be notified after successful payment")
         
     return db_order
 
-def get_orders(db: Session):
-    return repository.get_all(db)
+def get_orders(db: Session, status: str = None):
+    return repository.get_all(db, status=status)
 
 def get_order(db: Session, order_id: int):
     order = repository.get_by_id(db, order_id)

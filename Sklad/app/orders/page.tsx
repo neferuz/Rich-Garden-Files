@@ -95,7 +95,7 @@ function OrdersContent() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50/50 pb-32">
+        <div className="min-h-screen bg-gray-50/50 pb-32 overflow-y-auto">
 
             {/* Header with Animated Search */}
             <div className="pt-6 px-6 mb-6">
