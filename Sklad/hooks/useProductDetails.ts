@@ -170,9 +170,23 @@ export function useProductDetails(item?: any) {
     const removeImage = (index: number) => {
         setImages(prev => {
             const newImgs = prev.filter((_, i) => i !== index);
+            // If we removed the main image, point to the new first image
             if (newImgs.length > 0 && image === prev[index]) {
                 setImage(newImgs[0]);
+            } else if (newImgs.length === 0) {
+                setImage("");
             }
+            return newImgs;
+        });
+    };
+
+    const setAsMainImage = (index: number) => {
+        setImages(prev => {
+            if (index < 0 || index >= prev.length) return prev;
+            const newImgs = [...prev];
+            const target = newImgs.splice(index, 1)[0];
+            newImgs.unshift(target);
+            setImage(target);
             return newImgs;
         });
     };
@@ -295,6 +309,7 @@ export function useProductDetails(item?: any) {
         images, setImages,
         history, setHistory,
         removeImage,
+        setAsMainImage,
 
         composition, setComposition,
         availableProducts,

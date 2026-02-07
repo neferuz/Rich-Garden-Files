@@ -11,6 +11,7 @@ import {
     DropdownMenuTrigger,
     DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
+import { formatPhoneNumber } from "@/lib/utils"
 
 type Client = {
     id: number;
@@ -133,7 +134,7 @@ export default function ClientsPage() {
                                 <div className="bg-white p-4 rounded-[24px] shadow-sm border border-gray-100 active:scale-[0.99] transition-transform group cursor-pointer relative overflow-hidden">
                                     <div className="flex items-center gap-4">
                                         {/* Avatar */}
-                                        <div className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold bg-gray-100 overflow-hidden text-gray-500">
+                                        <div className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold bg-gray-100 overflow-hidden text-gray-500 shrink-0">
                                             {client.photo_url ? (
                                                 <img src={client.photo_url} alt={client.first_name} className="w-full h-full object-cover" />
                                             ) : (
@@ -142,34 +143,27 @@ export default function ClientsPage() {
                                         </div>
 
                                         {/* Info */}
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <div className="flex items-center gap-2">
-                                                    <h3 className="font-bold text-gray-900 text-[16px] truncate">
-                                                        {client.first_name} {client.username ? `(@${client.username})` : ''}
-                                                    </h3>
-                                                    {client.telegram_id ? (
-                                                        <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wide">
-                                                            Online
-                                                        </span>
-                                                    ) : (
-                                                        <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 text-[10px] font-bold uppercase tracking-wide">
-                                                            Offline
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
+                                        <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                            <h3 className="font-bold text-gray-900 text-[16px] truncate leading-tight">
+                                                {client.first_name}
+                                            </h3>
 
-                                            <div className="flex items-center gap-3 text-sm text-gray-500">
-                                                {client.phone_number ? (
-                                                    <div className="flex items-center gap-1.5">
-                                                        <Phone size={12} strokeWidth={2.5} />
-                                                        <span className="font-medium">{client.phone_number}</span>
-                                                    </div>
-                                                ) : (
-                                                    <span className="italic text-xs">Нет номера</span>
-                                                )}
-                                            </div>
+                                            {client.username && (
+                                                <span className="text-sm font-medium text-blue-600 truncate mt-0.5">@{client.username}</span>
+                                            )}
+                                        </div>
+
+                                        {/* Status */}
+                                        <div className="shrink-0 flex items-center">
+                                            {client.telegram_id ? (
+                                                <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wide">
+                                                    Online
+                                                </span>
+                                            ) : (
+                                                <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-500 text-[10px] font-bold uppercase tracking-wide">
+                                                    Offline
+                                                </span>
+                                            )}
                                         </div>
 
                                         {/* Arrow */}

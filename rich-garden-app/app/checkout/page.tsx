@@ -24,9 +24,21 @@ const formatPrice = (price: number) => {
     return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 }
 
+import { AnimatedBackground } from "@/components/features/home/AnimatedBackground"
+import { cn } from "@/lib/utils"
+
 export default function CheckoutPage() {
     const router = useRouter()
     const [paymentMethod, setPaymentMethod] = useState('cash')
+    const [scrolled, setScrolled] = useState(false)
+
+    useEffect(() => {
+        const handleScroll = () => {
+            setScrolled(window.scrollY > 10)
+        }
+        window.addEventListener('scroll', handleScroll)
+        return () => window.removeEventListener('scroll', handleScroll)
+    }, [])
 
     // Address State
     const [savedAddresses, setSavedAddresses] = useState<Address[]>([])
@@ -119,7 +131,74 @@ export default function CheckoutPage() {
         return () => clearInterval(interval)
     }, [paymeReceiptId])
 
+    // Delivery Time State
+    const [deliveryType, setDeliveryType] = useState<'ready' | 'scheduled'>('ready')
+    const [deliveryDate, setDeliveryDate] = useState<string>('')
+    const [deliveryTime, setDeliveryTime] = useState<string>('')
+
+    const dates = useMemo(() => {
+        const d = [];
+        const today = new Date();
+        for (let i = 0; i < 7; i++) {
+            const next = new Date(today);
+            next.setDate(today.getDate() + i);
+            d.push({
+                full: next.toISOString().split('T')[0],
+                day: next.getDate(),
+                month: next.toLocaleString('ru', { month: 'short' }),
+                weekday: i === 0 ? 'сегодня' : i === 1 ? 'завтра' : next.toLocaleString('ru', { weekday: 'short' })
+            });
+        }
+        return d;
+    }, []);
+
+    useEffect(() => {
+        if (!deliveryDate) setDeliveryDate(dates[0].full)
+        if (!deliveryTime) setDeliveryTime('12:00 - 13:00')
+    }, [dates])
+
+    const timeSlots = [
+        "09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00",
+        "12:00 - 13:00", "13:00 - 14:00", "14:00 - 15:00",
+        "15:00 - 16:00", "16:00 - 17:00", "17:00 - 18:00",
+        "18:00 - 19:00", "19:00 - 20:00", "20:00 - 21:00"
+    ]
+
     const { cartItems, totalPrice: basePrice, clearCart, isLoaded } = useCart()
+
+    const [isKeyboardVisible, setIsKeyboardVisible] = useState(false)
+
+    useEffect(() => {
+        const handleFocus = (e: any) => {
+            if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
+                setIsKeyboardVisible(true)
+            }
+        }
+        const handleBlur = (e: any) => {
+            if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
+                setIsKeyboardVisible(false)
+            }
+        }
+
+        window.addEventListener('focusin', handleFocus)
+        window.addEventListener('focusout', handleBlur)
+
+        // Visual Viewport API for more reliable keyboard detection on some mobile browsers
+        const handleViewportResize = () => {
+            if (window.visualViewport) {
+                const isProbablyKeyboard = window.visualViewport.height < window.innerHeight * 0.8
+                setIsKeyboardVisible(isProbablyKeyboard)
+            }
+        }
+
+        window.visualViewport?.addEventListener('resize', handleViewportResize)
+
+        return () => {
+            window.removeEventListener('focusin', handleFocus)
+            window.removeEventListener('focusout', handleBlur)
+            window.visualViewport?.removeEventListener('resize', handleViewportResize)
+        }
+    }, [])
 
     const totalPrice = useMemo(() => {
         const wowPrice = wowEffect ? Number(wowEffect.price) : 0
@@ -141,8 +220,9 @@ export default function CheckoutPage() {
 
     if (!isLoaded) {
         return (
-            <div className="min-h-screen bg-[#F5F5F7] flex items-center justify-center">
-                <div className="w-8 h-8 border-4 border-gray-300 border-t-black rounded-full animate-spin"></div>
+            <div className="min-h-screen relative flex items-center justify-center">
+                <AnimatedBackground />
+                <div className="w-12 h-12 border-4 border-black/10 border-t-black rounded-full animate-spin"></div>
             </div>
         )
     }
@@ -163,7 +243,8 @@ export default function CheckoutPage() {
             const extras = {
                 postcard: postcard.active ? postcard.text : null,
                 wow_effect: wowEffect || null,
-                addons: selectedExtras
+                addons: selectedExtras,
+                delivery_time: deliveryType === 'ready' ? 'По готовности' : `${deliveryDate} в ${deliveryTime}`
             }
 
             const phoneForOrder = userProfile?.phone_number || (telegramUser as any)?.phone_number || 'Уточнить';
@@ -174,6 +255,7 @@ export default function CheckoutPage() {
                 telegram_id: telegramUser?.id,
                 address: address ? `${address.title}: ${address.street}${address.details ? `, ${address.details}` : ''}` : undefined,
                 comment: postcard.active ? postcard.text : undefined,
+                delivery_time: deliveryType === 'ready' ? 'По готовности' : `${deliveryDate} в ${deliveryTime}`,
                 payment_method: paymentMethod,
                 extras: JSON.stringify(extras),
                 items: JSON.stringify(cartItems.map(item => ({
@@ -337,18 +419,23 @@ export default function CheckoutPage() {
 
 
     return (
-        <div className="min-h-screen bg-[#F5F5F7] pb-44 font-sans selection:bg-black selection:text-white">
+        <main className="min-h-screen relative pb-44 font-sans selection:bg-black selection:text-white">
+            <AnimatedBackground />
+
             {/* Header */}
-            <header className="sticky top-0 z-40 bg-[#F5F5F7]/80 backdrop-blur-xl">
+            <header className={cn(
+                "fixed top-0 inset-x-0 z-50 transition-all duration-300 px-2",
+                scrolled ? "bg-white border-b border-black/5" : "bg-transparent"
+            )}>
                 <div className="px-5 h-16 flex items-center justify-between">
                     <button
                         onClick={() => router.back()}
-                        className="w-11 h-11 flex items-center justify-center -ml-2 rounded-full active:scale-90 transition-transform"
+                        className="w-10 h-10 flex items-center justify-center -ml-2 rounded-full border border-black/5 bg-transparent active:scale-95 transition-transform"
                     >
-                        <ChevronLeft size={26} className="text-black" />
+                        <ChevronLeft size={24} className="text-black" />
                     </button>
-                    <h1 className="text-[18px] font-bold text-black tracking-tight">Оформление</h1>
-                    <div className="w-11"></div>
+                    <h1 className="text-[18px] font-bold text-black uppercase tracking-tight">Оформление</h1>
+                    <div className="w-10"></div>
                 </div>
             </header>
 
@@ -356,7 +443,7 @@ export default function CheckoutPage() {
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
-                className="px-5 py-2 space-y-8"
+                className="px-5 pt-20 space-y-8"
             >
 
                 {/* Delivery Address Section */}
@@ -386,7 +473,7 @@ export default function CheckoutPage() {
                                                 key={addr.id}
                                                 whileTap={{ scale: 0.95 }}
                                                 onClick={() => setAddress({ title: addr.title, street: addr.address, details: addr.info })}
-                                                className="min-w-[160px] bg-white p-4 rounded-[24px] border border-gray-200 text-left flex flex-col gap-1 shadow-sm"
+                                                className="min-w-[160px] bg-white p-4 rounded-[24px] border border-black/5 text-left flex flex-col gap-1"
                                             >
                                                 <span className="font-bold text-black">{addr.title}</span>
                                                 <span className="text-xs text-gray-500 line-clamp-2">{addr.address}</span>
@@ -403,10 +490,10 @@ export default function CheckoutPage() {
                                         setTempAddress({ title: 'Дом', street: '', details: '' })
                                         setIsAddingAddress(true)
                                     }}
-                                    className="w-full h-[100px] rounded-[32px] border-2 border-dashed border-gray-300 flex flex-col items-center justify-center gap-2 text-gray-400 hover:bg-white hover:border-gray-200 active:scale-[0.98] transition-all bg-white/50"
+                                    className="w-full h-[100px] rounded-[32px] border-2 border-dashed border-black/5 flex flex-col items-center justify-center gap-2 text-black/40 hover:bg-white/40 hover:border-black/20 active:scale-[0.98] transition-all bg-white"
                                 >
-                                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
-                                        <ChevronRight size={20} className="text-gray-400 rotate-90" />
+                                    <div className="w-10 h-10 rounded-full bg-black/5 flex items-center justify-center">
+                                        <ChevronRight size={20} className="text-black rotate-90" />
                                     </div>
                                     <span className="font-bold text-[14px]">Новый адрес</span>
                                 </motion.button>
@@ -490,7 +577,7 @@ export default function CheckoutPage() {
 
                                             <button
                                                 onClick={handleSaveAddress}
-                                                className="w-full h-14 bg-black text-white font-bold text-[16px] rounded-[24px] mt-2 active:scale-[0.98] shadow-lg shadow-black/20 transition-all"
+                                                className="w-full h-14 bg-black text-white font-bold text-[16px] rounded-[24px] mt-2 active:scale-[0.98] border border-black/5 transition-all"
                                             >
                                                 Сохранить адрес
                                             </button>
@@ -503,26 +590,26 @@ export default function CheckoutPage() {
                                 key="card"
                                 initial={{ opacity: 0, scale: 0.95 }}
                                 animate={{ opacity: 1, scale: 1 }}
-                                className="bg-white rounded-[32px] p-5 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.05)] border border-white relative overflow-hidden group active:scale-[0.98] transition-all duration-300"
+                                className="bg-white rounded-[32px] p-5 border border-black/5 relative overflow-hidden group active:scale-[0.98] transition-all duration-300"
                             >
                                 <div className="flex items-start gap-4 z-10 relative">
-                                    <div className="w-12 h-12 rounded-2xl bg-black flex items-center justify-center shrink-0 shadow-lg shadow-black/20">
+                                    <div className="w-12 h-12 rounded-2xl bg-black flex items-center justify-center shrink-0">
                                         <MapPin size={22} className="text-white" strokeWidth={2.5} />
                                     </div>
                                     <div className="flex-1 min-w-0 pt-0.5">
                                         <h3 className="text-[17px] font-bold text-black leading-tight mb-1">
                                             {address.title}
                                         </h3>
-                                        <p className="text-[16px] font-medium text-gray-900 leading-snug">
+                                        <p className="text-[16px] font-medium text-black/80 leading-snug">
                                             {address.street}
                                         </p>
-                                        <p className="text-[14px] text-gray-400 mt-1.5 leading-relaxed font-medium">
+                                        <p className="text-[14px] text-black/50 mt-1.5 leading-relaxed font-medium">
                                             {address.details}
                                         </p>
                                     </div>
                                 </div>
                                 {/* Decorative Map BG Pattern */}
-                                <div className="absolute top-0 right-0 w-32 h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                                <div className="absolute top-0 right-0 w-32 h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-black/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
                             </motion.div>
                         )}
                     </AnimatePresence>
@@ -531,17 +618,115 @@ export default function CheckoutPage() {
                 {/* Courier Comment */}
                 <motion.section variants={itemVariants}>
                     <div className="flex items-center gap-3 mb-4 px-1">
-                        <h2 className="text-[22px] font-extrabold text-black leading-none">Пожелания</h2>
+                        <h2 className="text-[22px] font-extrabold text-black leading-none px-1">пожелания</h2>
                     </div>
-                    <div className="bg-white rounded-[28px] p-2 pr-3 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] flex items-center gap-3 focus-within:ring-2 focus-within:ring-black/5 transition-shadow">
-                        <div className="w-12 h-12 rounded-[20px] bg-[#FFF8F2] flex items-center justify-center shrink-0">
-                            <MessageSquareText size={22} className="text-[#FF8A00]" strokeWidth={1.5} />
+                    <div className="bg-white rounded-[28px] p-2 pr-4 border border-black/5 flex items-center gap-3 transition-all">
+                        <div className="w-12 h-12 rounded-[20px] bg-black/5 flex items-center justify-center shrink-0">
+                            <PenLine size={22} className="text-black" strokeWidth={1.5} />
                         </div>
                         <input
                             type="text"
-                            placeholder="Комментарий"
-                            className="flex-1 h-full bg-transparent font-bold text-[16px] text-black placeholder:text-gray-300 outline-none"
+                            placeholder="комментарий к заказу"
+                            className="flex-1 h-full bg-transparent font-black text-[16px] text-black placeholder:text-black/20 outline-none lowercase"
                         />
+                    </div>
+                </motion.section>
+
+                {/* Delivery Time Section */}
+                <motion.section variants={itemVariants}>
+                    <div className="flex items-end justify-between mb-4 px-1">
+                        <h2 className="text-[22px] font-extrabold text-black leading-none px-1 lowercase">когда доставить?</h2>
+                    </div>
+
+                    <div className="space-y-4">
+                        {/* Type Toggle */}
+                        <div className="bg-white rounded-[32px] p-2 border border-black/5 grid grid-cols-2 gap-2">
+                            <button
+                                onClick={() => setDeliveryType('ready')}
+                                className={cn(
+                                    "h-14 rounded-[24px] font-medium text-[15px] transition-all lowercase",
+                                    deliveryType === 'ready' ? "bg-black text-white" : "text-black/40 hover:bg-black/5"
+                                )}
+                            >
+                                по готовности
+                            </button>
+                            <button
+                                onClick={() => setDeliveryType('scheduled')}
+                                className={cn(
+                                    "h-14 rounded-[24px] font-medium text-[15px] transition-all lowercase",
+                                    deliveryType === 'scheduled' ? "bg-black text-white" : "text-black/40 hover:bg-black/5"
+                                )}
+                            >
+                                ко времени
+                            </button>
+                        </div>
+
+                        <AnimatePresence mode="wait">
+                            {deliveryType === 'scheduled' && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    className="space-y-4 overflow-hidden"
+                                >
+                                    {/* Date Selector */}
+                                    <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-5 px-5 pb-1">
+                                        {dates.map((d, i) => (
+                                            <button
+                                                key={d.full}
+                                                onClick={() => setDeliveryDate(d.full)}
+                                                className={cn(
+                                                    "shrink-0 min-w-[80px] h-[90px] rounded-[24px] flex flex-col items-center justify-center gap-1 transition-all border",
+                                                    deliveryDate === d.full
+                                                        ? "bg-black border-black text-white"
+                                                        : "bg-white border-black/5 text-black hover:bg-white/60"
+                                                )}
+                                            >
+                                                <span className={cn("text-[10px] font-medium uppercase tracking-widest", deliveryDate === d.full ? "text-white/40" : "text-black/20")}>
+                                                    {d.weekday}
+                                                </span>
+                                                <span className="text-[20px] font-medium leading-none">{d.day}</span>
+                                                <span className={cn("text-[12px] font-medium lowercase", deliveryDate === d.full ? "text-white/60" : "text-black/40")}>
+                                                    {d.month}
+                                                </span>
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {/* Time Selector */}
+                                    <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-5 px-5 pb-1">
+                                        {timeSlots.map((slot) => (
+                                            <button
+                                                key={slot}
+                                                onClick={() => setDeliveryTime(slot)}
+                                                className={cn(
+                                                    "shrink-0 min-w-[130px] h-12 rounded-[22px] font-medium text-[14px] transition-all border lowercase",
+                                                    deliveryTime === slot
+                                                        ? "bg-black border-black text-white"
+                                                        : "bg-white border-black/5 text-black active:bg-white/60"
+                                                )}
+                                            >
+                                                {slot}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        {deliveryType === 'ready' && (
+                            <div className="bg-black/5 rounded-[28px] p-5 flex items-start gap-4">
+                                <div className="w-10 h-10 rounded-full bg-black/5 flex items-center justify-center shrink-0">
+                                    <Zap size={20} className="text-black/20" />
+                                </div>
+                                <div className="space-y-1">
+                                    <h4 className="text-[15px] font-black text-black/60 lowercase">быстрая доставка</h4>
+                                    <p className="text-[13px] font-medium text-black/30 leading-snug lowercase">
+                                        доставим букет сразу после того, как флорист закончит его сборку. обычно это занимает от 40 до 90 минут.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </motion.section>
 
@@ -551,22 +736,28 @@ export default function CheckoutPage() {
                         <h2 className="text-[22px] font-extrabold text-black leading-none">Дополнительно</h2>
                     </div>
 
-                    <div className="bg-white rounded-[32px] p-2 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] space-y-2">
+                    <div className="bg-white rounded-[32px] p-2 border border-black/5 space-y-2">
                         {/* Postcard */}
                         <div className="rounded-[28px] overflow-hidden transition-all duration-300">
                             <button
                                 onClick={() => setPostcard({ ...postcard, active: !postcard.active })}
-                                className={`w-full p-4 flex items-center gap-4 transition-colors ${postcard.active ? 'bg-black text-white' : 'bg-transparent text-black hover:bg-gray-50'}`}
+                                className={cn(
+                                    "w-full p-4 flex items-center gap-4 transition-all",
+                                    postcard.active ? "bg-black text-white" : "bg-transparent text-black active:bg-black/5"
+                                )}
                             >
-                                <div className={`w-12 h-12 rounded-[22px] flex items-center justify-center shrink-0 transition-colors ${postcard.active ? 'bg-white/20' : 'bg-[#F2F2F5]'}`}>
+                                <div className={cn(
+                                    "w-12 h-12 rounded-[22px] flex items-center justify-center shrink-0 transition-colors",
+                                    postcard.active ? "bg-white/20" : "bg-black/5"
+                                )}>
                                     <PenLine size={24} strokeWidth={1.5} className={postcard.active ? 'text-white' : 'text-black'} />
                                 </div>
                                 <div className="flex-1 text-left">
                                     <div className="flex justify-between items-center">
-                                        <h3 className={`text-[16px] font-bold leading-tight ${postcard.active ? 'text-white' : 'text-black'}`}>{postcardItem?.name ?? 'Открытка'}</h3>
-                                        <span className={`text-[13px] font-bold ${postcard.active ? 'text-white/80' : 'text-black/60'}`}>{formatPrice(postcardItem?.price ?? 10000)} сум</span>
+                                        <h3 className={cn("text-[16px] font-bold leading-tight", postcard.active ? "text-white" : "text-black")}>{postcardItem?.name ?? 'Открытка'}</h3>
+                                        <span className={cn("text-[13px] font-bold", postcard.active ? "text-white/80" : "text-black/60")}>{formatPrice(postcardItem?.price ?? 10000)} сум</span>
                                     </div>
-                                    <p className={`text-[13px] font-medium ${postcard.active ? 'text-white/60' : 'text-gray-500'}`}>{postcardItem?.description ?? 'Напишите теплые слова'}</p>
+                                    <p className={cn("text-[13px] font-medium", postcard.active ? "text-white/60" : "text-gray-500")}>{postcardItem?.description ?? 'Напишите теплые слова'}</p>
                                 </div>
                                 {postcard.active && <Check size={20} className="text-white" />}
                             </button>
@@ -601,8 +792,8 @@ export default function CheckoutPage() {
                                             key={option.id}
                                             onClick={() => setWowEffect(isSelected ? null : option)}
                                             className={`relative pl-3 pr-5 py-3.5 rounded-[24px] border transition-all flex flex-col gap-2 ${isSelected
-                                                ? 'bg-black border-black text-white shadow-lg'
-                                                : 'bg-white border-gray-100 text-black shadow-sm'
+                                                ? 'bg-black border-black text-white'
+                                                : 'bg-white border-black/5 text-black'
                                                 }`}
                                         >
                                             <div className="flex items-center gap-3 w-full">
@@ -637,7 +828,7 @@ export default function CheckoutPage() {
 
                         {/* Extra Items (Balloons, Toys from DB) */}
                         <div className="p-2 pt-0">
-                            <h4 className="px-2 mb-3 text-[13px] font-bold text-gray-500 uppercase tracking-wider">К подарку</h4>
+                            <h4 className="px-2 mb-3 text-[13px] font-bold text-black/40 uppercase tracking-wider">К подарку</h4>
                             <div className="flex flex-col gap-2">
                                 {extraOptions.map(option => {
                                     const IconComp = ICON_MAP[option.icon] || Smile
@@ -649,17 +840,23 @@ export default function CheckoutPage() {
                                                 if (isSelected) setSelectedExtras(selectedExtras.filter(id => id !== option.id))
                                                 else setSelectedExtras([...selectedExtras, option.id])
                                             }}
-                                            className={`w-full p-3 rounded-[24px] flex flex-col gap-2 transition-all ${isSelected ? 'bg-[#F2F8FF] ring-2 ring-blue-500/20 shadow-sm' : 'bg-[#F9F9F9]'}`}
+                                            className={cn(
+                                                "w-full p-3 rounded-[24px] flex flex-col gap-2 transition-all",
+                                                isSelected ? "bg-black text-white" : "bg-white border border-black/5 active:bg-black/10"
+                                            )}
                                         >
                                             <div className="flex items-center gap-4 w-full">
-                                                <div className={`w-10 h-10 rounded-[18px] bg-white flex items-center justify-center shadow-sm shrink-0 ${isSelected ? 'text-blue-500' : 'text-gray-400'}`}>
+                                                <div className={cn(
+                                                    "w-10 h-10 rounded-[18px] flex items-center justify-center shadow-sm shrink-0",
+                                                    isSelected ? "bg-white/20 text-white" : "bg-white text-gray-400"
+                                                )}>
                                                     <IconComp size={20} />
                                                 </div>
                                                 <div className="flex-1 flex justify-between items-center text-left">
-                                                    <span className="font-bold text-black text-[15px]">{option.name}</span>
+                                                    <span className="font-bold text-[15px]">{option.name}</span>
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-[13px] font-bold text-black/60">{formatPrice(option.price)} сум</span>
-                                                        {isSelected && <Check size={18} className="text-blue-500" />}
+                                                        <span className={cn("text-[13px] font-bold", isSelected ? "text-white/80" : "text-black/60")}>{formatPrice(option.price)} сум</span>
+                                                        {isSelected && <Check size={18} className="text-white" />}
                                                     </div>
                                                 </div>
                                             </div>
@@ -671,7 +868,7 @@ export default function CheckoutPage() {
                                                         exit={{ height: 0, opacity: 0 }}
                                                         className="px-1 text-left"
                                                     >
-                                                        <p className="text-[12px] font-medium text-gray-400 leading-relaxed pb-1">
+                                                        <p className={cn("text-[12px] font-medium leading-relaxed pb-1", isSelected ? "text-white/60" : "text-gray-400")}>
                                                             {option.description}
                                                         </p>
                                                     </motion.div>
@@ -696,14 +893,18 @@ export default function CheckoutPage() {
                             <button
                                 key={method.id}
                                 onClick={() => setPaymentMethod(method.id)}
-                                className={`relative h-[88px] rounded-[28px] p-4 flex flex-col justify-between transition-all duration-300 ${paymentMethod === method.id
-                                    ? 'bg-black shadow-[0_12px_30px_-8px_rgba(0,0,0,0.3)] scale-[1.02]'
-                                    : 'bg-white shadow-[0_2px_10px_rgba(0,0,0,0.02)] active:scale-95 border border-transparent'
-                                    }`}
+                                className={cn(
+                                    "relative h-[88px] rounded-[28px] p-4 flex flex-col justify-between transition-all duration-300 border border-black/5",
+                                    paymentMethod === method.id
+                                        ? "bg-black text-white scale-[1.02]"
+                                        : "bg-white active:scale-95"
+                                )}
                             >
                                 <div className="flex items-start justify-between w-full">
-                                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-colors ${paymentMethod === method.id ? 'bg-white/20 text-white' : `${method.bg} ${method.color}`
-                                        }`}>
+                                    <div className={cn(
+                                        "w-10 h-10 rounded-2xl flex items-center justify-center transition-colors",
+                                        paymentMethod === method.id ? "bg-white/20 text-white" : `${method.bg} ${method.color}`
+                                    )}>
                                         {method.icon}
                                     </div>
                                     {paymentMethod === method.id && (
@@ -716,8 +917,7 @@ export default function CheckoutPage() {
                                         </motion.div>
                                     )}
                                 </div>
-                                <span className={`text-[15px] font-bold text-left ${paymentMethod === method.id ? 'text-white' : 'text-gray-900'
-                                    }`}>
+                                <span className={cn("text-[15px] font-bold text-left", paymentMethod === method.id ? "text-white" : "text-black")}>
                                     {method.name}
                                 </span>
                             </button>
@@ -727,38 +927,43 @@ export default function CheckoutPage() {
             </motion.div>
 
             {/* Bottom Action */}
-            <motion.div
-                initial={{ y: 50, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.3, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                className="fixed bottom-8 left-0 right-0 px-5 z-40"
-            >
-                <div className="absolute inset-x-0 bottom-[-32px] h-[100px] bg-gradient-to-t from-[#F5F5F7] to-transparent pointer-events-none" />
-                <button
-                    onClick={handlePlaceOrder}
-                    disabled={isPlacingOrder || cartItems.length === 0}
-                    className="relative w-full h-[72px] bg-[#111] rounded-[28px] flex items-center justify-between pl-7 pr-2 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.4)] active:scale-[0.98] transition-all overflow-hidden disabled:opacity-80"
-                >
-                    {isPlacingOrder ? (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        </div>
-                    ) : (
-                        <>
-                            <div className="flex flex-col items-start justify-center space-y-0.5">
-                                <span className="text-white/50 text-[12px] font-bold uppercase tracking-wider">итого</span>
-                                <span className="text-white font-bold text-[20px] tracking-tight">{formatPrice(totalPrice)} сум</span>
-                            </div>
-                            <div className="h-[56px] px-8 bg-white rounded-[22px] flex items-center justify-center gap-2 group hover:bg-gray-50 transition-colors disabled:opacity-50">
-                                <span className="text-black font-bold text-[16px]">
-                                    {cartItems.length > 0 ? 'Оплатить' : 'Корзина пуста'}
-                                </span>
-                                {cartItems.length > 0 && <ChevronRight size={18} className="text-black stroke-[3]" />}
-                            </div>
-                        </>
-                    )}
-                </button>
-            </motion.div>
+            <AnimatePresence>
+                {!isKeyboardVisible && (
+                    <motion.div
+                        initial={{ y: 100, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: 100, opacity: 0 }}
+                        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                        className="fixed bottom-8 left-0 right-0 px-5 z-40"
+                    >
+                        <div className="absolute inset-x-0 bottom-[-32px] h-[100px] bg-gradient-to-t from-white/20 to-transparent pointer-events-none backdrop-blur-sm" />
+                        <button
+                            onClick={handlePlaceOrder}
+                            disabled={isPlacingOrder || cartItems.length === 0}
+                            className="relative w-full h-[72px] bg-[#111] rounded-[28px] flex items-center justify-between pl-7 pr-2 active:scale-[0.98] transition-all overflow-hidden disabled:opacity-80"
+                        >
+                            {isPlacingOrder ? (
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="flex flex-col items-start justify-center space-y-0.5">
+                                        <span className="text-white/50 text-[12px] font-bold uppercase tracking-wider">итого</span>
+                                        <span className="text-white font-bold text-[20px] tracking-tight">{formatPrice(totalPrice)} сум</span>
+                                    </div>
+                                    <div className="h-[56px] px-8 bg-white rounded-[22px] flex items-center justify-center gap-2 group hover:bg-gray-50 transition-colors disabled:opacity-50">
+                                        <span className="text-black font-bold text-[16px]">
+                                            {cartItems.length > 0 ? 'Оплатить' : 'Корзина пуста'}
+                                        </span>
+                                        {cartItems.length > 0 && <ChevronRight size={18} className="text-black stroke-[3]" />}
+                                    </div>
+                                </>
+                            )}
+                        </button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Success Overlay */}
             <AnimatePresence>
@@ -860,7 +1065,7 @@ export default function CheckoutPage() {
                                         initial={{ scale: 0, rotate: -45 }}
                                         animate={{ scale: 1, rotate: 0 }}
                                         transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.2 }}
-                                        className="w-24 h-24 bg-black rounded-[32px] flex items-center justify-center mb-10 shadow-[0_20px_50px_rgba(0,0,0,0.15)]"
+                                        className="w-24 h-24 bg-black rounded-[32px] flex items-center justify-center mb-10"
                                     >
                                         <Sparkles size={40} className="text-[#FFD700]" />
                                     </motion.div>
@@ -922,11 +1127,11 @@ export default function CheckoutPage() {
                                                     console.error('[Click] URL пустой!');
                                                     return;
                                                 }
-                                                
+
                                                 console.log('[Click] Открываю URL:', url);
-                                                
+
                                                 const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : null;
-                                                
+
                                                 try {
                                                     if (tg?.openLink) {
                                                         tg.openLink(url, { try_instant_view: false });
@@ -940,7 +1145,7 @@ export default function CheckoutPage() {
                                                     try { window.location.href = url; } catch (e2) { alert('Не удалось открыть Click. Скопируйте ссылку: ' + url); }
                                                 }
                                             }}
-                                            className="w-full h-[72px] bg-[#00aeef] rounded-[28px] text-white font-bold text-[17px] active:scale-[0.98] shadow-xl transition-all flex items-center justify-center gap-3 lowercase"
+                                            className="w-full h-[72px] bg-[#00aeef] rounded-[28px] text-white font-bold text-[17px] active:scale-[0.98] border border-black/5 transition-all flex items-center justify-center gap-3 lowercase"
                                         >
                                             <span>Открыть Click</span>
                                             <ChevronRight size={20} />
@@ -982,7 +1187,7 @@ export default function CheckoutPage() {
                                                     try { window.location.href = url; } catch (e2) { alert('Не удалось открыть счёт Payme. Перейдите: ' + url); }
                                                 }
                                             }}
-                                            className="w-full h-[72px] bg-[#00aeef] rounded-[28px] text-white font-bold text-[17px] active:scale-[0.98] shadow-xl transition-all flex items-center justify-center gap-3 lowercase"
+                                            className="w-full h-[72px] bg-[#00aeef] rounded-[28px] text-white font-bold text-[17px] active:scale-[0.98] border border-black/5 transition-all flex items-center justify-center gap-3 lowercase"
                                         >
                                             <span>Открыть Payme</span>
                                             <ChevronRight size={20} />
@@ -1008,7 +1213,7 @@ export default function CheckoutPage() {
                                     <>
                                         <Link
                                             href="/orders"
-                                            className="w-full h-[72px] bg-black rounded-[28px] text-white font-bold text-[17px] active:scale-[0.98] shadow-2xl shadow-black/20 transition-all flex items-center justify-center gap-3"
+                                            className="w-full h-[72px] bg-black rounded-[28px] text-white font-bold text-[17px] active:scale-[0.98] border border-black/5 transition-all flex items-center justify-center gap-3"
                                         >
                                             <Box size={20} />
                                             <span className="lowercase">мои заказы</span>
@@ -1026,6 +1231,6 @@ export default function CheckoutPage() {
                     </motion.div>
                 )}
             </AnimatePresence>
-        </div>
+        </main>
     )
 }

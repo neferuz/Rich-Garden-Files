@@ -16,3 +16,8 @@ def create_expense(expense: schemas.ExpenseCreate, db: Session = Depends(get_db)
 @router.get("", response_model=List[schemas.Expense])
 def get_expenses(db: Session = Depends(get_db)):
     return service.get_expenses(db)
+
+@router.delete("/{expense_id}")
+def delete_expense(expense_id: int, db: Session = Depends(get_db)):
+    service.delete_expense(db, expense_id)
+    return {"message": "Expense deleted"}

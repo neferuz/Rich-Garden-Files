@@ -24,8 +24,28 @@ export default function POSPage() {
 
     // Loading States
     const [loadingProducts, setLoadingProducts] = useState(false)
-    
+
     useEffect(() => {
+        // Restore session from localStorage
+        const savedCart = localStorage.getItem('pos_cart')
+        const savedClient = localStorage.getItem('pos_selected_client')
+
+        if (savedCart) {
+            try {
+                setCart(JSON.parse(savedCart))
+            } catch (e) {
+                console.error("Failed to parse cart", e)
+            }
+        }
+
+        if (savedClient) {
+            try {
+                setSelectedClient(JSON.parse(savedClient))
+            } catch (e) {
+                console.error("Failed to parse client", e)
+            }
+        }
+
         // Load products
         setLoadingProducts(true)
         api.getProducts()
@@ -38,7 +58,7 @@ export default function POSPage() {
             .finally(() => {
                 setLoadingProducts(false)
             })
-    
+
         // Load clients
         api.getClients()
             .then(data => {
@@ -102,7 +122,7 @@ export default function POSPage() {
         if (window.visualViewport) {
             window.visualViewport.addEventListener('resize', handleResize)
         }
-        
+
         if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
             const tg = window.Telegram.WebApp
             tg.onEvent('viewportChanged', handleViewportChange)
@@ -199,7 +219,7 @@ export default function POSPage() {
     const totalAmount = cart.reduce((sum, item) => sum + (item.product.price_raw * item.quantity), 0)
 
     const router = useRouter()
-    
+
     const handleCheckout = () => {
         if (!selectedClient) {
             showNotification("Выберите клиента", "error")
@@ -257,7 +277,7 @@ export default function POSPage() {
             setProcessing(false)
         }
     }
-    
+
 
     return (
         <div className="min-h-screen bg-gray-50/50 pb-32">
@@ -489,80 +509,80 @@ export default function POSPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                     {loadingProducts ? (
-                    <div className="col-span-2 flex items-center justify-center py-12">
-                        <div className="w-8 h-8 border-4 border-gray-300 border-t-black rounded-full animate-spin"></div>
-                    </div>
-                ) : filteredProducts.length === 0 ? (
-                    <div className="col-span-2 text-center py-12 text-gray-500">
-                        <p className="text-sm">Товары не найдены</p>
-                    </div>
-                ) : (
-                    filteredProducts.map(product => {
-                        const inCart = cart.find(i => i.product.id === product.id)
-                        const quantity = inCart?.quantity || 0
+                        <div className="col-span-2 flex items-center justify-center py-12">
+                            <div className="w-8 h-8 border-4 border-gray-300 border-t-black rounded-full animate-spin"></div>
+                        </div>
+                    ) : filteredProducts.length === 0 ? (
+                        <div className="col-span-2 text-center py-12 text-gray-500">
+                            <p className="text-sm">Товары не найдены</p>
+                        </div>
+                    ) : (
+                        filteredProducts.map(product => {
+                            const inCart = cart.find(i => i.product.id === product.id)
+                            const quantity = inCart?.quantity || 0
 
-                        return (
-                            <motion.div
-                                key={product.id}
-                                layoutId={`product-${product.id}`}
-                                className={`
+                            return (
+                                <motion.div
+                                    key={product.id}
+                                    layoutId={`product-${product.id}`}
+                                    className={`
                                     relative flex flex-col p-2 rounded-[24px] transition-all duration-300 cursor-pointer overflow-hidden group
                                     ${quantity > 0
-                                        ? 'bg-white ring-2 ring-green-500 shadow-md'
-                                        : 'bg-white border border-gray-100'
-                                    }
+                                            ? 'bg-white ring-2 ring-green-500 shadow-md'
+                                            : 'bg-white border border-gray-100'
+                                        }
                                 `}
-                                onClick={() => quantity > 0 ? removeFromCart(product.id) : addToCart(product)}
-                            >
-                                {/* Image Area - Taller & Fuller */}
-                                <div className="h-32 w-full relative bg-gray-50 rounded-[18px] mb-2 overflow-hidden flex items-center justify-center">
-                                    {product.image ? (
-                                        <img
-                                            src={product.image.startsWith('http') ? product.image : product.image}
-                                            alt={product.name}
-                                            className="w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-110"
-                                            onError={(e) => {
-                                                const target = e.target as HTMLImageElement;
-                                                target.src = '/placeholder.png';
-                                            }}
-                                        />
-                                    ) : (
-                                        <ShoppingBag className="text-gray-200 w-8 h-8" />
-                                    )}
-                                    {/* Overlay for selection */}
-                                    {quantity > 0 && <div className="absolute inset-0 bg-green-500/5" />}
-                                </div>
+                                    onClick={() => quantity > 0 ? removeFromCart(product.id) : addToCart(product)}
+                                >
+                                    {/* Image Area - Taller & Fuller */}
+                                    <div className="h-32 w-full relative bg-gray-50 rounded-[18px] mb-2 overflow-hidden flex items-center justify-center">
+                                        {product.image ? (
+                                            <img
+                                                src={product.image.startsWith('http') ? product.image : product.image}
+                                                alt={product.name}
+                                                className="w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-110"
+                                                onError={(e) => {
+                                                    const target = e.target as HTMLImageElement;
+                                                    target.src = '/placeholder.png';
+                                                }}
+                                            />
+                                        ) : (
+                                            <ShoppingBag className="text-gray-200 w-8 h-8" />
+                                        )}
+                                        {/* Overlay for selection */}
+                                        {quantity > 0 && <div className="absolute inset-0 bg-green-500/5" />}
+                                    </div>
 
-                                {/* Content */}
-                                <div className="px-1 flex flex-col pt-0.5">
-                                    <h3 className="font-bold text-[13px] leading-[1.2] text-gray-900 line-clamp-2 min-h-[2.4em]">
-                                        {product.name}
-                                    </h3>
+                                    {/* Content */}
+                                    <div className="px-1 flex flex-col pt-0.5">
+                                        <h3 className="font-bold text-[13px] leading-[1.2] text-gray-900 line-clamp-2 min-h-[2.4em]">
+                                            {product.name}
+                                        </h3>
 
-                                    <div className="flex items-end justify-between mt-1">
-                                        <span className={`text-[14px] font-bold ${quantity > 0 ? 'text-green-600' : 'text-gray-900'}`}>
-                                            {product.price_raw?.toLocaleString()} сум
-                                        </span>
+                                        <div className="flex items-end justify-between mt-1">
+                                            <span className={`text-[14px] font-bold ${quantity > 0 ? 'text-green-600' : 'text-gray-900'}`}>
+                                                {product.price_raw?.toLocaleString()} сум
+                                            </span>
 
-                                        <div className={`
+                                            <div className={`
                                             w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 shadow-sm
                                             ${quantity > 0
-                                                ? 'bg-green-500 text-white shadow-green-500/30'
-                                                : 'bg-black text-white shadow-black/20'
-                                            }
+                                                    ? 'bg-green-500 text-white shadow-green-500/30'
+                                                    : 'bg-black text-white shadow-black/20'
+                                                }
                                         `}>
-                                            {quantity > 0 ? (
-                                                <span className="font-semibold text-[13px]">{quantity}</span>
-                                            ) : (
-                                                <Plus size={16} strokeWidth={2} />
-                                            )}
+                                                {quantity > 0 ? (
+                                                    <span className="font-semibold text-[13px]">{quantity}</span>
+                                                ) : (
+                                                    <Plus size={16} strokeWidth={2} />
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </motion.div>
-                        )
-                    })
-                )}
+                                </motion.div>
+                            )
+                        })
+                    )}
                 </div>
             </div>
 
@@ -583,7 +603,7 @@ export default function POSPage() {
                                 {totalAmount.toLocaleString()} сум
                             </span>
                         </div>
-                        
+
                         {/* Кнопка оформления */}
                         <button
                             onClick={handleCheckout}

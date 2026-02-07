@@ -32,7 +32,7 @@ function HomeContent() {
   }
 
   return (
-    <ProtectedRoute>
+    <>
       <SearchBar />
       <main className="px-6 py-8">
         <div className="max-w-6xl mx-auto">
@@ -44,7 +44,7 @@ function HomeContent() {
       {selectedOrder && (
         <OrderDetails order={selectedOrder} isModal={true} onClose={handleCloseModal} />
       )}
-    </ProtectedRoute>
+    </>
   )
 }
 

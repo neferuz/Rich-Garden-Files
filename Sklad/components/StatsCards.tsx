@@ -21,14 +21,36 @@ export default function StatsCards() {
     criticalOrder: null as string | null
   })
 
+  const [error, setError] = useState<string | null>(null)
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [ordersData, productsData, expensesData] = await Promise.all([
-          api.getOrders(),
-          api.getProducts(),
-          api.getExpenses()
-        ])
+        setError(null)
+        console.log("Fetching dashboard stats...")
+
+        // Fetch individually to allow partial success and easier debugging
+        let ordersData: Order[] = []
+        try {
+          ordersData = await api.getOrders()
+        } catch (e) {
+          console.error("Failed to fetch orders:", e)
+          // setError("Failed to fetch orders") // Optional: show error
+        }
+
+        let productsData: Product[] = []
+        try {
+          productsData = await api.getProducts()
+        } catch (e) {
+          console.error("Failed to fetch products:", e)
+        }
+
+        let expensesData: any[] = []
+        try {
+          expensesData = await api.getExpenses()
+        } catch (e) {
+          console.error("Failed to fetch expenses:", e)
+        }
 
         setOrders(ordersData)
 
@@ -39,10 +61,10 @@ export default function StatsCards() {
         const shipping = ordersData.filter(o => o.status === "shipping").length
         const done = ordersData.filter(o => o.status === "done").length
         const active = newOrders + processing + shipping
-        const totalRevenue = ordersData.reduce((sum, o) => sum + o.total, 0)
+        const totalRevenue = ordersData.reduce((sum, o) => sum + (o.total || 0), 0)
 
         // Calculate Expenses
-        const totalExpense = expensesData.reduce((sum, e) => sum + e.amount, 0)
+        const totalExpense = expensesData.reduce((sum, e) => sum + (e.amount || 0), 0)
 
         // Find Critical Order (Oldest active)
         const activeOrders = ordersData.filter(o => ["new", "processing"].includes(o.status))
@@ -65,12 +87,14 @@ export default function StatsCards() {
           criticalOrder
         })
 
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to fetch dashboard stats", error)
+        setError(error.message || "Unknown error")
       }
     }
     fetchData()
   }, [])
+
 
   const originalStats = [
     {

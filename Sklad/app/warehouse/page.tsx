@@ -59,6 +59,7 @@ function WarehouseContent() {
     const checkIsBouquet = (p: Product) => !!(p.composition && p.composition !== "[]")
 
     const CATEGORY_MAPPING: Record<string, string> = {
+        'available': 'В наличии',
         'flowers': 'Цветы',
         'цветы': 'Цветы',
         'accessories': 'Аксессуары',
@@ -77,6 +78,7 @@ function WarehouseContent() {
         ];
 
         const BOUQUET_MAPPING: Record<string, string> = {
+            'available': 'В наличии',
             'mix': 'Авторский',
             'roses': 'Розы',
             'peonies': 'Пионы',
@@ -284,7 +286,9 @@ function WarehouseContent() {
                         <span className="text-sm font-bold text-gray-900 leading-tight pl-1 line-clamp-2 min-h-[2.5em]">{item.name}</span>
                         {!isBouquet ? (
                             <>
-                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide pl-1 opacity-70 mb-1">{item.category}</span>
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide pl-1 opacity-70 mb-1">
+                                    {CATEGORY_MAPPING[item.category?.toLowerCase()] || item.category}
+                                </span>
                                 <div className="flex items-center justify-between">
                                     <div className="px-3 py-1.5 bg-white/80 backdrop-blur-sm rounded-full shadow-sm text-sm font-bold text-gray-900 min-w-[3rem] text-center">
                                         {formatNumber(quantity)}
@@ -300,6 +304,7 @@ function WarehouseContent() {
                                     <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full bg-gray-100 text-gray-700">
                                         {(() => {
                                             const mapping: Record<string, string> = {
+                                                'available': 'В наличии',
                                                 'mix': 'Авторский',
                                                 'roses': 'Розы',
                                                 'peonies': 'Пионы',
@@ -355,7 +360,7 @@ function WarehouseContent() {
 
                             <button
                                 onClick={() => setIsCategoryModalOpen(true)}
-                                className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-900 shadow-sm active:scale-95 transition-all hover:bg-gray-50"
+                                className="w-10 h-10 rounded-full bg-white border border-black/5 flex items-center justify-center text-gray-900 active:scale-95 transition-all"
                             >
                                 <SlidersHorizontal size={20} strokeWidth={2} />
                             </button>

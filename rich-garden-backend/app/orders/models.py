@@ -16,6 +16,7 @@ class Order(Base):
     address = Column(String, nullable=True)
     comment = Column(String, nullable=True)
     payment_method = Column(String, nullable=True)
+    delivery_time = Column(String, nullable=True)
     payme_receipt_id = Column(String, nullable=True)  # Subscribe API: receipt id для polling
     extras = Column(String, nullable=True) # JSON string for postcard, wow-effect, balloons, etc.
     history = Column(String, default='[]') # JSON string of list of {status, time, description}

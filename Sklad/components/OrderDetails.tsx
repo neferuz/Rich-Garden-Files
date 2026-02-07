@@ -2,10 +2,11 @@
 
 import { Order, api } from "@/services/api"
 import Link from "next/link"
-import { ArrowLeft, Clock, MapPin, Phone, CheckCircle2, AlertCircle, Truck, XCircle, ShoppingBag, X, MessageSquare, User, ChevronRight, MoreVertical, Trash2, AlertTriangle } from "lucide-react"
+import { ArrowLeft, Clock, MapPin, Phone, CheckCircle2, AlertCircle, Truck, XCircle, ShoppingBag, X, MessageSquare, User, ChevronRight, MoreVertical, Trash2, AlertTriangle, Globe, Store } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
+import { formatPhoneNumber, formatAddress } from "@/lib/utils"
 
 interface OrderDetailsProps {
     order: Order
@@ -26,6 +27,27 @@ export default function OrderDetails({ order, isModal = false, onClose }: OrderD
     useEffect(() => {
         setLocalOrder(order)
     }, [order])
+
+    const [products, setProducts] = useState<any[]>([])
+
+    useEffect(() => {
+        api.getProducts().then(setProducts).catch(console.error)
+    }, [])
+
+    // Derived items state (prevents unnecessary setLocalOrder calls)
+    const itemsToDisplay = localOrder.items.map(item => {
+        if (!item.name || item.name.startsWith('Товар #') || !item.image) {
+            const product = products.find(p => p.id === Number(item.id))
+            if (product) {
+                return {
+                    ...item,
+                    name: item.name && !item.name.startsWith('Товар #') ? item.name : product.name,
+                    image: item.image || product.image
+                }
+            }
+        }
+        return item
+    })
 
     useEffect(() => {
         if (isModal) {
@@ -65,16 +87,16 @@ export default function OrderDetails({ order, isModal = false, onClose }: OrderD
             console.log('Deleting order:', localOrder.id)
             await api.deleteOrder(String(localOrder.id))
             console.log('Order deleted successfully')
-            
+
             // Close modal first
             setIsDeleteConfirmOpen(false)
             setIsMenuOpen(false)
-            
+
             // Then redirect and force reload
             if (isModal && onClose) {
                 onClose()
             }
-            
+
             // Force navigation and reload
             router.push('/orders')
             setTimeout(() => {
@@ -113,9 +135,10 @@ export default function OrderDetails({ order, isModal = false, onClose }: OrderD
         ? "w-full sm:max-w-md max-h-[90vh] bg-[#F2F3F5] overflow-y-auto overscroll-contain rounded-t-[32px] sm:rounded-[32px] shadow-2xl relative touch-pan-y -webkit-overflow-scrolling-touch"
         : "bg-[#F2F3F5] min-h-screen pb-32"
 
-    const displayPhone = (order.clientPhone === 'Уточнить' || order.clientPhone === 'Не указан' || order.clientPhone === 'Clarify') && order.user?.phone_number
+    const rawPhone = (order.clientPhone === 'Уточнить' || order.clientPhone === 'Не указан' || order.clientPhone === 'Clarify') && order.user?.phone_number
         ? order.user.phone_number
-        : order.clientPhone
+        : order.clientPhone;
+    const displayPhone = formatPhoneNumber(rawPhone);
 
     return (
         <div className={containerClasses} onClick={isModal ? handleClose : undefined}>
@@ -163,7 +186,7 @@ export default function OrderDetails({ order, isModal = false, onClose }: OrderD
                         >
                             <MoreVertical size={20} />
                         </button>
-                        
+
                         {isMenuOpen && (
                             <>
                                 <div
@@ -200,8 +223,21 @@ export default function OrderDetails({ order, isModal = false, onClose }: OrderD
                                 <p className={`text-lg font-medium ${statusInfo.color}`}>{statusInfo.label}</p>
                             </div>
                         </div>
-                        <div className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold uppercase tracking-wide">
-                            {localOrder.type === 'delivery' ? 'Доставка' : 'Самовывоз'}
+                        <div className="flex flex-col items-end gap-2">
+                            <div className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold uppercase tracking-wide">
+                                {localOrder.type === 'delivery' ? 'Доставка' : 'Самовывоз'}
+                            </div>
+                            {localOrder.address ? (
+                                <div className="px-3 py-1.5 bg-purple-50 text-purple-600 rounded-lg text-[10px] font-bold uppercase tracking-wide flex items-center gap-1.5 border border-purple-100">
+                                    <Globe size={12} />
+                                    Онлайн
+                                </div>
+                            ) : (
+                                <div className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-[10px] font-bold uppercase tracking-wide flex items-center gap-1.5 border border-gray-200">
+                                    <Store size={12} />
+                                    Офлайн
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -210,7 +246,7 @@ export default function OrderDetails({ order, isModal = false, onClose }: OrderD
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-base font-bold text-gray-900">Клиент</h2>
                             <div className="flex items-center gap-2">
-                                <a href={`tel:${displayPhone}`} className="w-9 h-9 rounded-full bg-green-50 text-green-600 flex items-center justify-center hover:bg-green-100 transition-colors">
+                                <a href={rawPhone ? `tel:${rawPhone.replace(/[^\d+]/g, '')}` : '#'} className="w-9 h-9 rounded-full bg-green-50 text-green-600 flex items-center justify-center hover:bg-green-100 transition-colors">
                                     <Phone size={18} />
                                 </a>
                             </div>
@@ -272,8 +308,8 @@ export default function OrderDetails({ order, isModal = false, onClose }: OrderD
                                     <Clock size={18} />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-0.5">Время</p>
-                                    <p className="text-sm font-bold text-gray-900">Сегодня, {order.time}</p>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-0.5">Дата и время</p>
+                                    <p className="text-sm font-bold text-gray-900 leading-snug">{order.deliveryTime || `${order.date} в ${order.time}`}</p>
                                 </div>
                             </div>
                             <div className="flex items-start gap-4">
@@ -282,7 +318,7 @@ export default function OrderDetails({ order, isModal = false, onClose }: OrderD
                                 </div>
                                 <div>
                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-0.5">Адрес</p>
-                                    <p className="text-sm font-bold text-gray-900 leading-snug">{order.address}</p>
+                                    <p className="text-sm font-bold text-gray-900 leading-snug">{formatAddress(order.address)}</p>
                                 </div>
                             </div>
                         </div>
@@ -317,7 +353,7 @@ export default function OrderDetails({ order, isModal = false, onClose }: OrderD
                         </div>
 
                         <div className="space-y-4">
-                            {order.items.map((item, i) => (
+                            {itemsToDisplay.map((item, i) => (
                                 <div key={i} className="flex items-center justify-between">
                                     <div className="flex items-center gap-4">
                                         <div

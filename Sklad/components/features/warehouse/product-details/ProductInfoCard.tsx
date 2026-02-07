@@ -132,7 +132,11 @@ export function ProductInfoCard({
                                 {(category?.toLowerCase() === "flowers" || category === "Цветы") ? <Sprout size={14} className="text-emerald-500" /> :
                                     (category?.toLowerCase() === "packaging" || category === "Упаковка") ? <Package size={14} className="text-amber-500" /> :
                                         <Tag size={14} className="text-blue-500" />}
-                                {(category?.toLowerCase() === "all" || category === "Разное" || !category) ? "Общее" : category}
+                                {(() => {
+                                    if (category?.toLowerCase() === "available") return "В наличии";
+                                    if (category?.toLowerCase() === "all" || category === "Разное" || !category) return "Общее";
+                                    return category;
+                                })()}
                             </span>
                         )}
                     </div>

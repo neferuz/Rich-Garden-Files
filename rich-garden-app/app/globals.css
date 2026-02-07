@@ -48,6 +48,7 @@ body {
 
 /* Light Mode Premium Glassmorphism */
 .glass-premium-light {
+  --glow-pink: rgba(255, 77, 148, 0.4);
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
@@ -71,9 +72,20 @@ body {
 
 .shadow-premium-light {
   box-shadow:
-    0 20px 40px rgba(0, 0, 0, 0.04),
-    0 10px 20px rgba(0, 0, 0, 0.02),
-    0 0 0 1px rgba(255, 255, 255, 0.8);
+    0 10px 30px rgba(0, 0, 0, 0.04),
+    0 6px 10px rgba(0, 0, 0, 0.02);
+}
+
+.premium-bg-gradient {
+  background-color: #ffffff;
+  background-image:
+    radial-gradient(at 0% 0%, #E4E4FA 0px, transparent 60%),
+    radial-gradient(at 100% 0%, #E3E4FB 0px, transparent 60%),
+    radial-gradient(at 100% 100%, #C6C6EB 0px, transparent 60%),
+    radial-gradient(at 0% 100%, #E4E4FA 0px, transparent 60%),
+    radial-gradient(at 50% 50%, #ffffff 0px, transparent 80%);
+  background-attachment: fixed;
+  background-size: cover;
 }
 
 .text-glow-light {

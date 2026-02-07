@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useProductDetails } from "@/hooks/useProductDetails"
 import { ProductInfoCard } from "./features/warehouse/product-details/ProductInfoCard"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, X, MoreVertical, Trash2, Image as ImageIcon, AlertTriangle } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { BouquetComposition } from "./features/warehouse/product-details/BouquetComposition"
 import { StockStats } from "./features/warehouse/product-details/StockStats"
@@ -14,12 +14,13 @@ import { ActionModals } from "./features/warehouse/product-details/ActionModals"
 import { ProductDetailsHeader } from "./features/warehouse/product-details/ProductDetailsHeader"
 import { NotificationToast } from "./shared/NotificationToast"
 import { BottomActions } from "./features/warehouse/product-details/BottomActions"
-import { X } from "lucide-react"
 
 export default function ProductDetails({ item, isModal = false, onClose }: { item?: any, isModal?: boolean, onClose?: () => void }) {
     const router = useRouter()
     const [isClosing, setIsClosing] = useState(false)
     const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null)
+    const [isImageMenuOpen, setIsImageMenuOpen] = useState(false)
+    const [isImageDeleteConfirmOpen, setIsImageDeleteConfirmOpen] = useState(false)
 
     const {
         buyPrice, setBuyPrice,
@@ -58,7 +59,8 @@ export default function ProductDetails({ item, isModal = false, onClose }: { ite
         confirmAction,
         handlePublish,
         handleUnpublish,
-        handleDelete
+        handleDelete,
+        setAsMainImage
     } = useProductDetails(item);
 
     // Lock body scroll when modal is active
@@ -249,7 +251,7 @@ export default function ProductDetails({ item, isModal = false, onClose }: { ite
                     // Unique images from both main 'image' and 'images' array
                     const allImages = Array.from(new Set([image, ...images])).filter(Boolean);
                     const currentImage = allImages[selectedImageIndex];
-                    
+
                     // Normalize image URL - remove domain if present, keep relative paths
                     const getImageSrc = (img: string | undefined) => {
                         if (!img) return '';
@@ -264,7 +266,7 @@ export default function ProductDetails({ item, isModal = false, onClose }: { ite
                         // Otherwise, assume it's a relative path
                         return img;
                     };
-                    
+
                     const imageSrc = getImageSrc(currentImage);
                     console.log('Modal image debug:', { currentImage, imageSrc, allImages });
 
@@ -300,6 +302,56 @@ export default function ProductDetails({ item, isModal = false, onClose }: { ite
                             {/* Counter */}
                             <div className="absolute top-8 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-white/90 text-sm font-bold tracking-widest z-[320]">
                                 {selectedImageIndex + 1} / {allImages.length}
+                            </div>
+
+                            {/* Image Options Menu (3 dots) */}
+                            <div className="absolute top-6 left-6 z-[340]">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        setIsImageMenuOpen(!isImageMenuOpen)
+                                    }}
+                                    className="w-12 h-12 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 active:scale-95 transition-all border border-white/10"
+                                >
+                                    <MoreVertical size={24} />
+                                </button>
+
+                                <AnimatePresence>
+                                    {isImageMenuOpen && (
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.9, y: -20 }}
+                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                            exit={{ opacity: 0, scale: 0.9, y: -20 }}
+                                            className="absolute top-14 left-0 w-56 bg-white/10 backdrop-blur-2xl border border-white/20 rounded-3xl p-2 shadow-2xl z-[350] overflow-hidden"
+                                            onClick={e => e.stopPropagation()}
+                                        >
+                                            <button
+                                                onClick={() => {
+                                                    setAsMainImage(selectedImageIndex || 0)
+                                                    setIsImageMenuOpen(false)
+                                                    setSelectedImageIndex(0)
+                                                    // Auto-save the change
+                                                    setTimeout(handleSave, 100)
+                                                }}
+                                                className="w-full h-12 px-4 flex items-center gap-3 text-white hover:bg-white/20 rounded-2xl transition-all"
+                                            >
+                                                <ImageIcon size={18} />
+                                                <span className="font-bold text-sm">Сделать основной</span>
+                                            </button>
+                                            <div className="h-px bg-white/10 my-1 mx-2" />
+                                            <button
+                                                onClick={() => {
+                                                    setIsImageDeleteConfirmOpen(true)
+                                                    setIsImageMenuOpen(false)
+                                                }}
+                                                className="w-full h-12 px-4 flex items-center gap-3 text-red-400 hover:bg-red-500/20 rounded-2xl transition-all"
+                                            >
+                                                <Trash2 size={18} />
+                                                <span className="font-bold text-sm">Удалить фото</span>
+                                            </button>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
 
                             <div className="relative w-full h-full flex items-center justify-center p-4" onClick={e => e.stopPropagation()}>
@@ -364,6 +416,58 @@ export default function ProductDetails({ item, isModal = false, onClose }: { ite
                     )
                 })()
             }
+            {/* Image Delete Confirmation Modal */}
+            <AnimatePresence>
+                {isImageDeleteConfirmOpen && (
+                    <div className="fixed inset-0 z-[400] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsImageDeleteConfirmOpen(false)}
+                            className="absolute inset-0 bg-black/60 backdrop-blur-md"
+                        />
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                            className="bg-white w-full max-w-[320px] rounded-[32px] p-8 shadow-2xl relative z-10 text-center"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="w-20 h-20 rounded-full bg-red-50 text-red-500 flex items-center justify-center mx-auto mb-6">
+                                <AlertTriangle size={40} />
+                            </div>
+
+                            <h3 className="text-2xl font-bold text-gray-900 mb-2">Удалить фото?</h3>
+                            <p className="text-gray-500 text-sm mb-8 leading-relaxed">
+                                Вы уверены, что хотите удалить это изображение? Это действие нельзя будет отменить.
+                            </p>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <button
+                                    onClick={() => setIsImageDeleteConfirmOpen(false)}
+                                    className="h-14 rounded-[22px] bg-gray-100 text-gray-900 font-bold text-base hover:bg-gray-200 transition-colors"
+                                >
+                                    Отмена
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        removeImage(selectedImageIndex || 0)
+                                        setIsImageDeleteConfirmOpen(false)
+                                        setSelectedImageIndex(null)
+                                        // Auto-save the change
+                                        setTimeout(handleSave, 100)
+                                    }}
+                                    className="h-14 rounded-[22px] bg-red-500 text-white font-bold text-base hover:bg-red-600 transition-colors shadow-lg shadow-red-500/30"
+                                >
+                                    Удалить
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
         </div >
     )
 }

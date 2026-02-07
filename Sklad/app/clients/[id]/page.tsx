@@ -4,13 +4,15 @@ import { useState, useEffect, Suspense } from "react"
 import {
     ChevronLeft, Phone, MessageCircle, MapPin, Clock, MoreHorizontal,
     ShoppingBag, FolderClock, Send, X, Calendar as CalendarIcon,
-    Cake, User as UserIcon, Search, Trash2, AlertTriangle, Gift, ChevronRight
+    Cake, User as UserIcon, Search, Trash2, AlertTriangle, Gift, ChevronRight,
+    CreditCard, Banknote, Smartphone, MousePointer2, Store, Globe
 } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { api, Order, CalendarEvent, FamilyMember as FamilyMemberType } from "@/services/api"
 import OrderDetails from "@/components/OrderDetails"
+import { cn, formatPhoneNumber, formatAddress } from "@/lib/utils"
 
 type Address = {
     id: number;
@@ -28,6 +30,8 @@ type Client = {
     phone_number?: string;
     created_at: string;
     addresses: Address[];
+    orders_count: number;
+    total_spent: number;
 }
 
 function SendMessageModal({ client, isOpen, onClose }: { client: Client, isOpen: boolean, onClose: () => void }) {
@@ -267,11 +271,32 @@ function ClientDetailsContent({ params }: { params: { id: string } }) {
                 if (found) {
                     setClient(found)
                     try {
-                        const [ordersData, calendarData] = await Promise.all([
+                        const [ordersData, calendarData, productsData] = await Promise.all([
                             api.getOrdersByClientId(found.id),
-                            api.getAllCalendarData()
+                            api.getAllCalendarData(),
+                            api.getProducts()
                         ])
-                        setOrders(ordersData)
+
+                        // Map orders to include product names and images if missing
+                        const enrichedOrders = ordersData.map(order => ({
+                            ...order,
+                            items: order.items.map(item => {
+                                // If name OR image is missing, try to find product
+                                if (!item.name || item.name.startsWith('Товар #') || !item.image) {
+                                    const product = productsData.find(p => p.id === Number(item.id))
+                                    if (product) {
+                                        return {
+                                            ...item,
+                                            name: item.name && !item.name.startsWith('Товар #') ? item.name : product.name,
+                                            image: item.image || product.image
+                                        }
+                                    }
+                                }
+                                return item
+                            })
+                        }))
+
+                        setOrders(enrichedOrders)
                         setUserEvents(calendarData.events.filter(e => e.user_id === clientId))
                         setUserBirthdays(calendarData.family.filter(f => f.user_id === clientId))
                     } catch (e) {
@@ -292,7 +317,8 @@ function ClientDetailsContent({ params }: { params: { id: string } }) {
     if (!client) return <div className="p-6 text-center text-gray-500 font-medium">Клиент не найден</div>
 
     const mainAddress = client.addresses && client.addresses.length > 0
-        ? `${client.addresses[0].title}: ${client.addresses[0].address}` : "Нет адреса"
+        ? formatAddress(`${client.addresses[0].title}: ${client.addresses[0].address}`)
+        : (orders && orders.length > 0 && orders[0].address ? formatAddress(orders[0].address) : "Адрес не указан")
 
     return (
         <div className="min-h-screen bg-gray-50/50 pb-32 uppercase-none">
@@ -333,15 +359,40 @@ function ClientDetailsContent({ params }: { params: { id: string } }) {
                             {client.photo_url ? <img src={client.photo_url} alt="" className="w-full h-full object-cover" /> : (client.first_name?.[0] || 'U')}
                         </div>
                         <h1 className="text-xl font-bold text-gray-900 mb-1">{client.first_name} {client.username ? `(@${client.username})` : ''}</h1>
+
+                        {/* Phone Display */}
+                        {(() => {
+                            const rawPhone = client.phone_number || (orders && orders.length > 0 ? orders[0].clientPhone : null);
+                            const displayPhone = formatPhoneNumber(rawPhone);
+
+                            return displayPhone ? (
+                                <div className="flex items-center gap-1.5 text-blue-600 text-[15px] font-bold mb-4">
+                                    <Phone size={14} />
+                                    <span>{displayPhone}</span>
+                                </div>
+                            ) : (
+                                <div className="text-gray-400 text-xs font-medium mb-4 italic">Номер не указан</div>
+                            );
+                        })()}
+
                         <div className="flex items-center gap-1.5 text-gray-400 text-sm font-medium mb-6">
                             <MapPin size={14} />
                             {mainAddress}
                         </div>
                         <div className="flex gap-3 w-full">
-                            <a href={`tel:${client.phone_number}`} className="flex-1 h-12 rounded-[20px] bg-black text-white font-medium flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors shadow-lg shadow-black/20 active:scale-95 no-underline">
-                                <Phone size={18} />
-                                <span>Позвонить</span>
-                            </a>
+                            {(() => {
+                                const rawPhone = client.phone_number || (orders && orders.length > 0 ? orders[0].clientPhone : null);
+                                const displayPhone = formatPhoneNumber(rawPhone);
+
+                                return (
+                                    <a href={rawPhone ? `tel:${rawPhone.replace(/[^\d+]/g, '')}` : "#"}
+                                        className={cn("flex-1 h-12 rounded-[20px] font-medium flex items-center justify-center gap-2 transition-colors shadow-lg active:scale-95 no-underline",
+                                            displayPhone ? "bg-black text-white hover:bg-gray-800 shadow-black/20" : "bg-gray-100 text-gray-400 pointer-events-none")}>
+                                        <Phone size={18} />
+                                        <span>Позвонить</span>
+                                    </a>
+                                );
+                            })()}
                             <div className="flex gap-2">
                                 <button onClick={() => setIsMessageModalOpen(true)} className="w-12 h-12 rounded-[20px] bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-colors active:scale-95 shadow-sm border border-blue-100">
                                     <MessageCircle size={20} />
@@ -420,26 +471,94 @@ function ClientDetailsContent({ params }: { params: { id: string } }) {
                         />
                     </div>
                 </div>
+
+
                 <div className="flex flex-col gap-3">
-                    {filteredOrders.length > 0 ? filteredOrders.map(order => (
-                        <Link key={order.id} href={`${pathname}?order=${order.id}`} scroll={false}
-                            className="bg-white p-4 rounded-[24px] shadow-sm border border-gray-100 flex items-center justify-between active:scale-[0.99] transition-transform no-underline"
-                        >
-                            <div className="flex items-center gap-4">
-                                <div className={`w-12 h-12 rounded-[18px] flex items-center justify-center ${order.status === 'done' ? 'bg-green-50 text-green-600' : 'bg-blue-50 text-blue-600'}`}>
-                                    <ShoppingBag size={22} />
+                    {filteredOrders.length > 0 ? filteredOrders.map(order => {
+                        const discount = order.extras?.discount_amount || order.extras?.discount || 0
+                        const discountPercent = order.extras?.discount_percent
+
+                        // Payment Icon Logic
+                        const PaymentIcon = () => {
+                            switch (order.paymentMethod) {
+                                case 'card': return <CreditCard size={14} />
+                                case 'click': return <MousePointer2 size={14} />
+                                case 'payme': return <Smartphone size={14} />
+                                default: return <Banknote size={14} /> // cash default
+                            }
+                        }
+
+                        return (
+                            <Link key={order.id} href={`${pathname}?order=${order.id}`} scroll={false}
+                                className="bg-white p-4 rounded-[24px] shadow-sm border border-gray-100 flex flex-col gap-3 active:scale-[0.99] transition-transform no-underline relative overflow-hidden"
+                            >
+                                <div className="flex justify-between items-start">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-10 h-10 rounded-[14px] flex items-center justify-center ${order.status === 'done' ? 'bg-green-50 text-green-600' : 'bg-blue-50 text-blue-600'}`}>
+                                            <ShoppingBag size={18} />
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <div className="font-bold text-gray-900 text-[15px]">Заказ #{order.id}</div>
+                                                {order.address ? (
+                                                    <span className="bg-purple-50 text-purple-600 text-[9px] px-1.5 py-0.5 rounded-full flex items-center gap-1 font-bold uppercase tracking-wider border border-purple-100">
+                                                        <Globe size={10} />
+                                                        Онлайн
+                                                    </span>
+                                                ) : (
+                                                    <span className="bg-gray-100 text-gray-600 text-[9px] px-1.5 py-0.5 rounded-full flex items-center gap-1 font-bold uppercase tracking-wider border border-gray-200">
+                                                        <Store size={10} />
+                                                        Офлайн
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="text-xs font-medium text-gray-400">{order.date}, {order.time}</div>
+                                        </div>
+                                    </div>
+                                    <div className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${order.status === 'done' ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-500'}`}>
+                                        {order.status === 'done' ? 'Выполнен' : order.status}
+                                    </div>
                                 </div>
-                                <div>
-                                    <div className="font-bold text-gray-900 text-[15px] mb-0.5">Заказ #{order.id}</div>
-                                    <div className="text-xs font-medium text-gray-400 line-clamp-1 max-w-[150px]">{order.items.length} поз. • {order.status}</div>
+
+                                {/* Items List Preview */}
+                                <div className="bg-gray-50 rounded-[16px] p-3 border border-gray-100">
+                                    {order.items && order.items.length > 0 ? order.items.map((item, idx) => (
+                                        <div key={idx} className="flex justify-between items-center text-sm py-1 border-b border-gray-100 last:border-0 last:pb-0 first:pt-0">
+                                            <span className="text-gray-900 font-medium line-clamp-1 mr-2 flex-1">
+                                                {item.name || `Товар #${item.id}`}
+                                            </span>
+                                            <span className="text-gray-500 font-medium shrink-0 bg-white px-2 py-0.5 rounded-md text-xs shadow-sm border border-gray-100">
+                                                {item.quantity} шт
+                                            </span>
+                                        </div>
+                                    )) : (
+                                        <div className="text-gray-400 text-xs italic text-center">Нет товаров</div>
+                                    )}
                                 </div>
-                            </div>
-                            <div className="text-right">
-                                <div className="font-bold text-gray-900">{order.total.toLocaleString()} сум</div>
-                                <div className="text-xs font-medium text-gray-400">{order.date}</div>
-                            </div>
-                        </Link>
-                    )) : <div className="text-gray-400 text-sm text-center py-6 bg-white rounded-[24px] border border-dashed border-gray-200">Заказов не найдено</div>}
+
+                                <div className="flex items-center justify-between border-t border-gray-100/50 pt-3 mt-1">
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-7 px-2.5 bg-gray-50 rounded-lg flex items-center gap-1.5 text-gray-500 border border-gray-100">
+                                            <PaymentIcon />
+                                            <span className="text-[11px] font-bold uppercase tracking-wider">
+                                                {order.paymentMethod === 'card' ? 'Карта' :
+                                                    order.paymentMethod === 'click' ? 'Click' :
+                                                        order.paymentMethod === 'payme' ? 'Payme' : 'Нал'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="font-bold text-gray-900 text-lg leading-none">{order.total.toLocaleString()} сум</div>
+                                        {discount > 0 && (
+                                            <div className="text-xs font-bold text-red-500 mt-0.5">
+                                                Скидка {discountPercent ? `${discountPercent}%` : ''} (-{discount.toLocaleString()})
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </Link>
+                        )
+                    }) : <div className="text-gray-400 text-sm text-center py-6 bg-white rounded-[24px] border border-dashed border-gray-200">Заказов не найдено</div>}
                 </div>
             </div>
 

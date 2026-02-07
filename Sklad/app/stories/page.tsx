@@ -529,49 +529,51 @@ export default function StoriesManagementPage() {
                                 ) : (
                                     <>
                                         {/* Stats Highlights */}
-                                        <div className="grid grid-cols-2 gap-4 mb-8">
-                                            <div className="bg-white p-5 rounded-[28px] shadow-sm flex flex-col items-center justify-center gap-2">
-                                                <div className="w-10 h-10 rounded-2xl bg-[#3173f1] text-white flex items-center justify-center mb-1 shadow-md shadow-blue-200">
+                                        <div className="grid grid-cols-2 gap-3 mb-6">
+                                            <div className="bg-white p-4 rounded-[24px] shadow-sm flex flex-col items-center justify-center gap-2">
+                                                <div className="w-10 h-10 rounded-xl bg-[#3173f1] text-white flex items-center justify-center mb-1 shadow-md shadow-blue-200">
                                                     <Eye size={20} strokeWidth={2.5} />
                                                 </div>
-                                                <div className="text-3xl font-black text-black tracking-tight">{storyStats?.views_count || 0}</div>
-                                                <div className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Просмотров</div>
+                                                <div className="text-2xl font-bold text-black tracking-tight">{storyStats?.views_count || 0}</div>
+                                                <div className="text-[11px] font-bold text-gray-400 uppercase tracking-widest leading-none">Просмотров</div>
                                             </div>
-                                            <div className="bg-white p-5 rounded-[28px] shadow-sm flex flex-col items-center justify-center gap-2">
-                                                <div className="w-10 h-10 rounded-2xl bg-[#3173f1] text-white flex items-center justify-center mb-1 shadow-md shadow-blue-200">
+                                            <div className="bg-white p-4 rounded-[24px] shadow-sm flex flex-col items-center justify-center gap-2">
+                                                <div className="w-10 h-10 rounded-xl bg-[#3173f1] text-white flex items-center justify-center mb-1 shadow-md shadow-blue-200">
                                                     <Clock size={20} strokeWidth={2.5} />
                                                 </div>
-                                                <div className="text-3xl font-black text-black tracking-tight">100%</div>
-                                                <div className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Досмотра</div>
+                                                <div className="text-2xl font-bold text-black tracking-tight">100%</div>
+                                                <div className="text-[11px] font-bold text-gray-400 uppercase tracking-widest leading-none">Досмотра</div>
                                             </div>
                                         </div>
 
                                         {/* Viewers List */}
-                                        <div className="flex-1 overflow-y-auto no-scrollbar space-y-3 pr-1">
-                                            <h4 className="text-[13px] font-bold text-gray-400 uppercase tracking-wide px-2 mb-2">Зрители</h4>
+                                        <div className="flex-1 overflow-y-auto no-scrollbar space-y-2 pr-1">
+                                            <h4 className="text-[13px] font-bold text-gray-400 uppercase tracking-wide px-2 mb-3">
+                                                Зрители ({storyStats?.viewers.length || 0})
+                                            </h4>
                                             {storyStats?.viewers.length === 0 ? (
-                                                <div className="py-12 text-center text-gray-400 font-bold text-sm bg-white rounded-[24px]">
+                                                <div className="py-10 text-center text-gray-400 font-medium text-sm bg-white rounded-[24px]">
                                                     Пока никто не смотрел
                                                 </div>
                                             ) : (
                                                 storyStats?.viewers.map((viewer, i) => (
-                                                    <div key={i} className="flex items-center justify-between p-3 pl-4 bg-white rounded-[20px] shadow-sm">
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-black font-black border border-gray-100 overflow-hidden relative">
+                                                    <div key={i} className="flex items-center justify-between p-3 pl-4 bg-white rounded-[20px] shadow-sm hover:shadow-md transition-shadow">
+                                                        <div className="flex items-center gap-3.5">
+                                                            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-black font-bold border border-gray-100 overflow-hidden relative text-sm">
                                                                 {viewer.user_photo ? (
                                                                     <img src={viewer.user_photo} alt={viewer.user_name} className="w-full h-full object-cover" />
                                                                 ) : (
-                                                                    <span className="uppercase text-sm">{viewer.user_name.slice(0, 1)}</span>
+                                                                    <span className="uppercase">{viewer.user_name.slice(0, 1)}</span>
                                                                 )}
                                                             </div>
                                                             <div>
-                                                                <div className="font-bold text-black text-[15px]">{viewer.user_name}</div>
-                                                                <div className="text-[11px] font-semibold text-gray-400">
-                                                                    {new Date(viewer.viewed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                <div className="font-bold text-black text-[14px] leading-tight mb-0.5">{viewer.user_name}</div>
+                                                                <div className="text-[11px] font-medium text-gray-400">
+                                                                    {new Date(viewer.viewed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • Сегодня
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center mr-1">
+                                                        <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center mr-1 shadow-md shadow-black/10">
                                                             <Check size={14} strokeWidth={3} />
                                                         </div>
                                                     </div>
@@ -623,16 +625,13 @@ export default function StoriesManagementPage() {
                             <div className="w-full h-full relative">
                                 {selectedStory.content_type === 'video' ? (
                                     <video
-                                        src={selectedStory.content_url.startsWith('http') ? selectedStory.content_url : selectedStory.content_url}
+                                        src={selectedStory.content_url}
                                         className="w-full h-full object-cover"
                                         autoPlay
                                         muted
                                         loop
                                         playsInline
-                                        onError={(e) => {
-                                            const target = e.target as HTMLVideoElement;
-                                            target.style.display = 'none';
-                                        }}
+                                        controls
                                     />
                                 ) : (
                                     <img

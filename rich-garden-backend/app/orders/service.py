@@ -10,20 +10,35 @@ async def notify_new_order(db: Session, db_order: schemas.Order, telegram_id: in
     print(f"DEBUG notify_new_order: Called for order {db_order.id}, payment_method: {db_order.payment_method}")
     # Prepare data for notification
     items_detail = ""
+    image_strings = [] # Store image URLs or paths
+
     try:
         items = json.loads(db_order.items)
         if isinstance(items, list):
+            from app.products import repository as prod_repo
+            
             for item in items:
                 name = item.get('name')
-                if not name and item.get('id'):
-                    from app.products import repository as prod_repo
+                img = item.get('image')
+                
+                # If missing name or image, try to fetch from DB product
+                if (not name or not img) and item.get('id'):
                     p = prod_repo.get_by_id(db, int(item.get('id')))
                     if p:
-                        name = p.name
+                        if not name: name = p.name
+                        if not img: img = p.image
                 
                 name = name or "Товар"
                 qty = item.get('quantity') or 1
-                items_detail += f"- {name} x{qty}\n"
+                items_detail += f"{name} - {qty} шт.\n"
+                
+                if img:
+                    # Add image per quantity? No, usually just one photo per product type
+                    # Or per item entry. User said "if 2 photos ordered, 2 photos come".
+                    # If I order 51 Tulips x 1, it's 1 photo.
+                    # If I order Tulip x 1 and Rose x 1, it's 2 photos.
+                    # So we collect one image per line item.
+                    image_strings.append(img)
         else:
             items_detail = "Детали заказа: " + str(items)
     except Exception as e:
@@ -51,12 +66,13 @@ async def notify_new_order(db: Session, db_order: schemas.Order, telegram_id: in
             "total_price": db_order.total_price or 0,
             "payment_method": db_order.payment_method,
             "comment": db_order.comment,
-            "extras": extras_data
+            "extras": extras_data,
+            "delivery_time": db_order.delivery_time
         }
         
         # 1. Admin Notification
         print(f"DEBUG notify_new_order: Calling send_order_notification for order {db_order.id}")
-        msg_id = await telegram.send_order_notification(order_dict, items_detail)
+        msg_id = await telegram.send_order_notification(order_dict, items_detail, images=image_strings)
         print(f"DEBUG notify_new_order: send_order_notification returned message_id: {msg_id}")
         if msg_id:
             repository.update_telegram_message_id(db, db_order.id, msg_id)
@@ -162,7 +178,8 @@ async def update_order_status(db: Session, order_id: int, status_update: schemas
             "total_price": order.total_price,
             "payment_method": order.payment_method,
             "comment": order.comment,
-            "extras": extras_data
+            "extras": extras_data,
+            "delivery_time": order.delivery_time
         }
         
         await telegram.update_order_status_message(order.telegram_message_id, order_dict, items_detail)

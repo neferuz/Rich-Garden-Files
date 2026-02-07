@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Users, Plus, UserCog, Briefcase, Wallet, Truck, Search, Trash2, X, ChevronRight, Phone, Shield } from "lucide-react"
+import { Users, Plus, UserCog, Briefcase, Wallet, Truck, Search, Trash2, X, ChevronRight, Phone, Shield, Send } from "lucide-react"
 import { api, Employee } from "@/services/api"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
@@ -300,20 +300,28 @@ function AddEmployeeDrawer({ onClose, onRefresh }: { onClose: () => void, onRefr
 }
 
 function EditEmployeeDrawer({ employee, onClose, onRefresh }: { employee: Employee, onClose: () => void, onRefresh: () => void }) {
+    const [fullName, setFullName] = useState(employee.full_name)
+    const [telegramId, setTelegramId] = useState(employee.telegram_id.toString())
     const [role, setRole] = useState(employee.role)
     const [isActive, setIsActive] = useState(employee.is_active)
     const [loading, setLoading] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
 
     const handleSave = async () => {
+        if (!fullName || !telegramId) return
         setLoading(true)
         try {
-            await api.updateEmployee(employee.id, { role, is_active: isActive })
+            await api.updateEmployee(employee.id, {
+                full_name: fullName,
+                telegram_id: parseInt(telegramId),
+                role,
+                is_active: isActive
+            })
             onRefresh()
             onClose()
-        } catch (e) {
+        } catch (e: any) {
             console.error(e)
-            alert("Ошибка сохранения")
+            alert(e.message || "Ошибка сохранения")
         } finally {
             setLoading(false)
         }
@@ -338,23 +346,76 @@ function EditEmployeeDrawer({ employee, onClose, onRefresh }: { employee: Employ
         <Drawer onClose={onClose} title={employee.full_name}>
             {/* Profile Header */}
             <div className="bg-white p-6 rounded-[32px] shadow-sm mb-4 flex flex-col items-center">
-                <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-4 border-gray-50 mb-3 text-3xl font-bold text-gray-300">
-                    {employee.photo_url ? (
-                        <img src={employee.photo_url} alt={employee.full_name} className="w-full h-full object-cover" />
-                    ) : (
-                        employee.full_name[0]
-                    )}
-                </div>
+                <label className="relative group cursor-pointer mb-3">
+                    <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-4 border-gray-50 text-3xl font-bold text-gray-300">
+                        {loading ? (
+                            <div className="w-8 h-8 border-4 border-black/10 border-t-black rounded-full animate-spin" />
+                        ) : employee.photo_url ? (
+                            <img src={employee.photo_url} alt={employee.full_name} className="w-full h-full object-cover" />
+                        ) : (
+                            employee.full_name[0]
+                        )}
+                    </div>
+                    <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Plus size={24} className="text-white" />
+                    </div>
+                    <input
+                        type="file"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={async (e) => {
+                            const file = e.target.files?.[0]
+                            if (!file) return
+                            const formData = new FormData()
+                            formData.append('file', file)
+                            try {
+                                const res = await fetch('/api/upload', {
+                                    method: 'POST',
+                                    body: formData
+                                })
+                                const data = await res.json()
+                                if (data.url) {
+                                    await api.updateEmployee(employee.id, { photo_url: data.url })
+                                    onRefresh()
+                                }
+                            } catch (err) {
+                                console.error(err)
+                                alert("Ошибка загрузки фото")
+                            }
+                        }}
+                    />
+                </label>
                 <h2 className="text-xl font-bold text-gray-900 text-center">{employee.full_name}</h2>
                 <p className="text-sm font-medium text-gray-400 mb-4">{employee.username ? `@${employee.username}` : `ID: ${employee.telegram_id}`}</p>
 
                 <div className="flex gap-2">
                     <a href={`https://t.me/${employee.username || ''}`} target="_blank" className="w-10 h-10 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center hover:bg-blue-100 transition-colors">
-                        <Briefcase size={18} />
+                        <Send size={18} />
                     </a>
-                    <div className={cn("px-4 h-10 rounded-full flex items-center justify-center font-bold text-sm uppercase", employee.is_active ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-500")}>
-                        {employee.is_active ? "Активен" : "Скрыт"}
+                    <div className={cn("px-4 h-10 rounded-full flex items-center justify-center font-bold text-sm uppercase", isActive ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-500")}>
+                        {isActive ? "Активен" : "Скрыт"}
                     </div>
+                </div>
+            </div>
+
+            {/* Editable Fields */}
+            <div className="bg-white p-5 rounded-[24px] shadow-sm mb-4 space-y-4">
+                <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide ml-1 mb-1.5 block">Имя сотрудника</label>
+                    <input
+                        value={fullName} onChange={e => setFullName(e.target.value)}
+                        className="w-full h-12 bg-gray-50 rounded-[16px] px-4 font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-black/5"
+                        placeholder="Имя Фамилия"
+                    />
+                </div>
+                <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide ml-1 mb-1.5 block">Telegram ID</label>
+                    <input
+                        type="number"
+                        value={telegramId} onChange={e => setTelegramId(e.target.value)}
+                        className="w-full h-12 bg-gray-50 rounded-[16px] px-4 font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-black/5"
+                        placeholder="123456789"
+                    />
                 </div>
             </div>
 

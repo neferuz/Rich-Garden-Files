@@ -10,3 +10,10 @@ def create(db: Session, expense: schemas.ExpenseCreate):
 
 def get_all(db: Session):
     return db.query(models.Expense).all()
+
+def delete(db: Session, expense_id: int):
+    db_expense = db.query(models.Expense).filter(models.Expense.id == expense_id).first()
+    if db_expense:
+        db.delete(db_expense)
+        db.commit()
+    return db_expense

@@ -47,7 +47,7 @@ export function BouquetComposition({
     useEffect(() => {
         if (availableProducts.length > 0) {
             const map: Record<string, string> = {};
-            availableProducts.forEach((p: any) => { 
+            availableProducts.forEach((p: any) => {
                 if (p.image) {
                     map[p.id] = p.image;
                 }
@@ -58,7 +58,7 @@ export function BouquetComposition({
                 try {
                     const allProducts = await api.getProducts();
                     const map: Record<string, string> = {};
-                    allProducts.forEach((p: any) => { 
+                    allProducts.forEach((p: any) => {
                         if (p.image) {
                             map[p.id] = p.image;
                         }

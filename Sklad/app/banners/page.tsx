@@ -202,7 +202,7 @@ export default function BannersPage() {
     return (
         <div className="min-h-screen bg-[#F8F9FB] pb-32">
             {/* Header (Finance Style) */}
-            <div className="pt-6 px-6 mb-6">
+            <div className="sticky top-0 z-20 bg-[#F8F9FB]/90 backdrop-blur-xl pt-6 px-6 pb-4 border-b border-gray-100 shadow-sm mb-4">
                 <div className="flex items-center justify-between">
                     <Link href="/profile" className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-gray-100 text-gray-500 hover:text-black hover:bg-gray-50 transition-colors shadow-sm">
                         <ChevronLeft size={22} />
@@ -345,7 +345,7 @@ export default function BannersPage() {
                             <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 sm:p-8 pt-2 space-y-8">
                                 <div className="flex items-center justify-between mb-4">
                                     <div>
-                                        <h3 className="text-2xl font-black text-black tracking-tight leading-none">
+                                        <h3 className="text-2xl font-medium text-black tracking-tight leading-none">
                                             {modalState === 'add' ? 'Новый баннер' : 'Редактирование'}
                                         </h3>
                                         <p className="text-[13px] font-semibold text-gray-400 mt-1.5">
@@ -359,13 +359,14 @@ export default function BannersPage() {
 
                                 {/* Live Preview */}
                                 <div className="space-y-2">
-                                    <label className="text-[13px] font-bold text-gray-400 uppercase tracking-wide ml-1">Предпросмотр</label>
+                                    <label className="text-[13px] font-medium text-gray-400 uppercase tracking-wide ml-1">Предпросмотр</label>
                                     <div className="aspect-[2/1] w-full rounded-[28px] overflow-hidden shadow-sm relative border border-gray-100 group">
                                         <div className={`absolute inset-0 ${bgColor} flex flex-col justify-center px-6 transition-all`}>
                                             {bgType === 'image' && bgImageUrl && (
                                                 <>
                                                     <img src={bgImageUrl} className="absolute inset-0 w-full h-full object-cover" />
-                                                    <div className="absolute inset-0 bg-black/10 pointer-events-none" />
+                                                    {/* Dark overlay for preview consistency */}
+                                                    <div className="absolute inset-0 bg-black/30 pointer-events-none" />
                                                 </>
                                             )}
                                             <div className="relative z-10 w-3/4 pointer-events-none">
@@ -390,13 +391,13 @@ export default function BannersPage() {
                                 <div className="space-y-6">
                                     {/* Title */}
                                     <div className="space-y-2">
-                                        <label className="text-[13px] font-bold text-gray-400 uppercase tracking-wide ml-1">Заголовок</label>
+                                        <label className="text-[13px] font-medium text-gray-400 uppercase tracking-wide ml-1">Заголовок</label>
                                         <div className="flex gap-2">
                                             <div className="relative flex-1">
                                                 <input
                                                     value={title}
                                                     onChange={e => setTitle(e.target.value)}
-                                                    className="w-full h-14 bg-white rounded-[20px] px-5 pl-12 font-bold text-gray-900 border-none shadow-sm focus:outline-none focus:ring-0 placeholder:text-gray-300"
+                                                    className="w-full h-14 bg-white rounded-[20px] px-5 pl-12 font-medium text-gray-900 border-none shadow-sm focus:outline-none focus:ring-0 placeholder:text-gray-300"
                                                     placeholder="Напр: СЕЗОН ПИОНОВ"
                                                     required
                                                 />
@@ -416,12 +417,12 @@ export default function BannersPage() {
 
                                     {/* Subtitle */}
                                     <div className="space-y-2">
-                                        <label className="text-[13px] font-bold text-gray-400 uppercase tracking-wide ml-1">Подзаголовок</label>
+                                        <label className="text-[13px] font-medium text-gray-400 uppercase tracking-wide ml-1">Подзаголовок</label>
                                         <div className="flex gap-2">
                                             <textarea
                                                 value={subtitle}
                                                 onChange={e => setSubtitle(e.target.value)}
-                                                className="w-full h-24 bg-white rounded-[24px] p-5 font-semibold text-gray-900 border-none shadow-sm focus:outline-none resize-none leading-relaxed placeholder:text-gray-300 py-4"
+                                                className="w-full h-24 bg-white rounded-[24px] p-5 font-medium text-gray-900 border-none shadow-sm focus:outline-none resize-none leading-relaxed placeholder:text-gray-300 py-4"
                                                 placeholder="Описание акции..."
                                                 required
                                             />
@@ -439,13 +440,13 @@ export default function BannersPage() {
 
                                     {/* Button Settings */}
                                     <div className="space-y-2">
-                                        <label className="text-[13px] font-bold text-gray-400 uppercase tracking-wide ml-1">Кнопка</label>
+                                        <label className="text-[13px] font-medium text-gray-400 uppercase tracking-wide ml-1">Кнопка</label>
                                         <div className="flex gap-2">
                                             <div className="relative flex-1">
                                                 <input
                                                     value={buttonText}
                                                     onChange={e => setButtonText(e.target.value)}
-                                                    className="w-full h-14 bg-white rounded-[20px] px-5 pl-12 font-bold text-gray-900 border-none shadow-sm focus:outline-none uppercase placeholder:text-gray-300"
+                                                    className="w-full h-14 bg-white rounded-[20px] px-5 pl-12 font-medium text-gray-900 border-none shadow-sm focus:outline-none uppercase placeholder:text-gray-300"
                                                     placeholder="КУПИТЬ"
                                                 />
                                                 <MousePointerClick className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={20} />
@@ -485,14 +486,14 @@ export default function BannersPage() {
                                             <button
                                                 type="button"
                                                 onClick={() => setBgType('color')}
-                                                className={cn("flex-1 h-11 rounded-[16px] text-[13px] font-bold transition-all", bgType === 'color' ? "bg-black text-white shadow-md" : "text-gray-400 hover:text-gray-600")}
+                                                className={cn("flex-1 h-11 rounded-[16px] text-[13px] font-medium transition-all", bgType === 'color' ? "bg-black text-white shadow-md" : "text-gray-400 hover:text-gray-600")}
                                             >
                                                 Цвет фона
                                             </button>
                                             <button
                                                 type="button"
                                                 onClick={() => setBgType('image')}
-                                                className={cn("flex-1 h-11 rounded-[16px] text-[13px] font-bold transition-all", bgType === 'image' ? "bg-black text-white shadow-md" : "text-gray-400 hover:text-gray-600")}
+                                                className={cn("flex-1 h-11 rounded-[16px] text-[13px] font-medium transition-all", bgType === 'image' ? "bg-black text-white shadow-md" : "text-gray-400 hover:text-gray-600")}
                                             >
                                                 Изображение
                                             </button>
@@ -527,7 +528,7 @@ export default function BannersPage() {
                                                             <div className="w-14 h-14 rounded-full bg-gray-50 flex items-center justify-center text-gray-300">
                                                                 <ImageIcon size={28} />
                                                             </div>
-                                                            <span className="text-[11px] text-gray-400 font-bold uppercase tracking-wider">Загрузить фото</span>
+                                                            <span className="text-[11px] text-gray-400 font-medium uppercase tracking-wider">Загрузить фото</span>
                                                         </div>
                                                     )}
                                                     <input
@@ -569,7 +570,7 @@ export default function BannersPage() {
                                     disabled={isSaving}
                                     className="w-full h-16 bg-[#3173f1] text-white rounded-[24px] font-black text-[17px] active:scale-[0.98] transition-all shadow-xl shadow-blue-500/20 flex items-center justify-center gap-3 disabled:opacity-50"
                                 >
-                                    {isSaving ? <Loader2 className="animate-spin" size={24} /> : (modalState === 'add' ? <Sparkles size={20} fill="currentColor" text-white /> : <Edit2 size={20} />)}
+                                    {isSaving ? <Loader2 className="animate-spin" size={24} /> : (modalState === 'add' ? <Sparkles size={20} fill="currentColor" /> : <Edit2 size={20} />)}
                                     <span>{modalState === 'add' ? 'Создать баннер' : 'Сохранить изменения'}</span>
                                 </button>
                             </div>

@@ -65,6 +65,8 @@ const getCollapsedDays = (centerDate: Date) => {
     return days
 }
 
+import { AnimatedBackground } from "@/components/features/home/AnimatedBackground"
+
 export default function CalendarPage() {
     const [events, setEvents] = useState<CalendarEvent[]>([])
     const [family, setFamily] = useState<FamilyMember[]>([])
@@ -229,17 +231,31 @@ export default function CalendarPage() {
         }
     }
 
+    const [scrolled, setScrolled] = useState(false)
+
+    useEffect(() => {
+        const handleScroll = () => {
+            setScrolled(window.scrollY > 10)
+        }
+        window.addEventListener('scroll', handleScroll)
+        return () => window.removeEventListener('scroll', handleScroll)
+    }, [])
+
     return (
-        <main className="min-h-screen bg-white pb-32 selection:bg-black selection:text-white">
+        <main className="min-h-screen relative pb-32 selection:bg-black selection:text-white">
+            <AnimatedBackground />
 
             {/* Minimalist Fixed Header - Profile Style */}
-            <header className="fixed top-0 inset-x-0 bg-white/80 backdrop-blur-xl z-50 border-b border-gray-100/50">
+            <header className={cn(
+                "fixed top-0 inset-x-0 z-50 transition-all duration-300",
+                scrolled ? "bg-white border-b border-black/5" : "bg-transparent"
+            )}>
                 <div className="px-6 h-16 flex items-center justify-between">
                     <h1 className="text-[26px] font-bold text-black lowercase tracking-tight leading-none">календарь</h1>
                     <div className="flex gap-2">
                         <button
                             onClick={() => setIsHelpOpen(true)}
-                            className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-gray-100 text-gray-400 active:scale-95 transition-all hover:text-black hover:border-black/10"
+                            className="w-10 h-10 flex items-center justify-center rounded-full bg-transparent text-gray-400 active:scale-95 transition-all hover:text-black"
                         >
                             <HelpCircle size={18} strokeWidth={1.5} />
                         </button>
@@ -320,7 +336,7 @@ export default function CalendarPage() {
                                     initial={{ opacity: 0, scale: 0.95 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     exit={{ opacity: 0, scale: 0.95 }}
-                                    className="relative flex justify-center items-center gap-1.5 p-1.5 bg-gray-50/50 rounded-[32px] border border-gray-100/50"
+                                    className="relative flex justify-center items-center gap-1.5 p-1.5 bg-gray-50/50 rounded-[32px] border border-black/5"
                                 >
                                     {getCollapsedDays(selectedDate).map((date, i) => {
                                         const isSelected = date.toDateString() === selectedDate.toDateString()
@@ -379,7 +395,7 @@ export default function CalendarPage() {
                         <div className="flex justify-center mt-6">
                             <button
                                 onClick={() => setIsCalendarExpanded(!isCalendarExpanded)}
-                                className="px-4 py-2 rounded-full border border-gray-100 bg-white shadow-sm flex items-center gap-2 group hover:border-black/10 transition-colors"
+                                className="px-4 py-2 rounded-full border border-black/5 bg-white flex items-center gap-2 group transition-colors"
                             >
                                 <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 group-hover:text-black transition-colors">
                                     {isCalendarExpanded ? "Свернуть" : "Развернуть"}
@@ -480,7 +496,7 @@ export default function CalendarPage() {
 
                             if (list.length === 0) return (
                                 <div className="py-20 text-center">
-                                    <div className="w-16 h-16 bg-gray-50 rounded-3xl flex items-center justify-center mx-auto mb-4 border border-gray-100/50">
+                                    <div className="w-16 h-16 bg-gray-50 rounded-3xl flex items-center justify-center mx-auto mb-4 border border-black/5">
                                         <CalendarIcon className="text-gray-300" size={24} />
                                     </div>
                                     <p className="text-gray-400 font-medium">Событий пока нет</p>
@@ -554,7 +570,7 @@ export default function CalendarPage() {
                     >
                         <motion.div
                             initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                            className="bg-white rounded-[48px] w-full max-w-sm p-10 shadow-2xl relative"
+                            className="bg-white rounded-[48px] w-full max-w-sm p-10 border border-black/5 relative"
                             onClick={e => e.stopPropagation()}
                         >
                             <div className="flex items-center justify-between mb-8">
@@ -579,7 +595,7 @@ export default function CalendarPage() {
                                             "py-5 rounded-[24px] text-[17px] font-semibold transition-all duration-300",
                                             y === currentDate.getFullYear()
                                                 ? "bg-black text-white"
-                                                : "bg-gray-50/80 text-gray-900 border border-gray-100/50 hover:bg-gray-100"
+                                                : "bg-gray-50/80 text-gray-900 border border-black/5 hover:bg-gray-100"
                                         )}>
                                         {y}
                                     </motion.button>
@@ -599,7 +615,7 @@ export default function CalendarPage() {
                     >
                         <motion.div
                             initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                            className="bg-white rounded-[48px] w-full max-w-sm p-10 shadow-2xl relative"
+                            className="bg-white rounded-[48px] w-full max-w-sm p-10 border border-black/5 relative"
                             onClick={e => e.stopPropagation()}
                         >
                             <div className="flex items-center justify-between mb-8">
@@ -683,7 +699,7 @@ export default function CalendarPage() {
                                 </div>
 
                                 <div className="space-y-3">
-                                    <div className="bg-gray-50/50 p-4 rounded-[24px] border border-gray-100/50">
+                                    <div className="bg-gray-50/50 p-4 rounded-[24px] border border-black/5">
                                         <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest ml-1">Название</label>
                                         <input
                                             type="text"
@@ -695,11 +711,11 @@ export default function CalendarPage() {
                                     </div>
 
                                     <div className="flex gap-3">
-                                        <div onClick={() => setIsDatePickerOpen(true)} className="flex-1 bg-gray-50/50 p-4 rounded-[24px] border border-gray-100/50 cursor-pointer active:bg-gray-100 transition-colors">
+                                        <div onClick={() => setIsDatePickerOpen(true)} className="flex-1 bg-gray-50/50 p-4 rounded-[24px] border border-black/5 cursor-pointer active:bg-gray-100 transition-colors">
                                             <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest ml-1">Дата</label>
                                             <div className="text-[16px] font-medium text-black mt-1">{newEventDate.toLocaleDateString('ru-RU')}</div>
                                         </div>
-                                        <div className="flex-1 bg-gray-50/50 p-4 rounded-[24px] border border-gray-100/50">
+                                        <div className="flex-1 bg-gray-50/50 p-4 rounded-[24px] border border-black/5">
                                             <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest ml-1">Повтор</label>
                                             <select className="w-full bg-transparent text-[16px] font-medium text-black outline-none mt-1 appearance-none">
                                                 <option>Ежегодно</option>
@@ -729,7 +745,7 @@ export default function CalendarPage() {
                     >
                         <motion.div
                             initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                            className="bg-white rounded-[40px] w-full max-w-sm p-8 shadow-2xl relative"
+                            className="bg-white rounded-[40px] w-full max-w-sm p-8 border border-black/5 relative"
                             onClick={e => e.stopPropagation()}
                         >
                             <div className="flex items-center justify-between mb-8">
@@ -844,7 +860,7 @@ export default function CalendarPage() {
                     >
                         <motion.div
                             initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-                            className="bg-white rounded-[40px] w-full max-w-sm p-8 shadow-2xl"
+                            className="bg-white rounded-[40px] w-full max-w-sm p-8 border border-black/5"
                             onClick={e => e.stopPropagation()}
                         >
                             <div className="text-center space-y-4 mb-8">
@@ -870,7 +886,7 @@ export default function CalendarPage() {
                                 </button>
                                 <button
                                     onClick={() => selectedEvent && handleDeleteEvent(selectedEvent.id)}
-                                    className="py-4 bg-red-500 text-white text-[16px] font-semibold rounded-[24px] active:scale-95 transition-all shadow-lg shadow-red-500/20"
+                                    className="py-4 bg-red-500 text-white text-[16px] font-semibold rounded-[24px] active:scale-95 transition-all"
                                 >
                                     Удалить
                                 </button>
@@ -889,7 +905,7 @@ export default function CalendarPage() {
                     >
                         <motion.div
                             initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                            className="bg-white rounded-[48px] w-full max-w-sm p-10 shadow-2xl relative"
+                            className="bg-white rounded-[48px] w-full max-w-sm p-10 border border-black/5 relative"
                             onClick={e => e.stopPropagation()}
                         >
                             <div className="flex items-center justify-between mb-8">
@@ -945,7 +961,7 @@ export default function CalendarPage() {
                             </div>
 
                             <div className="space-y-4">
-                                <div className="bg-gray-50/50 p-4 rounded-[24px] border border-gray-100/50">
+                                <div className="bg-gray-50/50 p-4 rounded-[24px] border border-black/5">
                                     <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest ml-1">Имя</label>
                                     <input
                                         type="text"
@@ -956,7 +972,7 @@ export default function CalendarPage() {
                                     />
                                 </div>
 
-                                <div className="bg-gray-50/50 p-4 rounded-[24px] border border-gray-100/50">
+                                <div className="bg-gray-50/50 p-4 rounded-[24px] border border-black/5">
                                     <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest ml-1">Кто это?</label>
                                     <input
                                         type="text"
@@ -967,7 +983,7 @@ export default function CalendarPage() {
                                     />
                                 </div>
 
-                                <div onClick={() => setIsMemberDatePickerOpen(true)} className="bg-gray-50/50 p-4 rounded-[24px] border border-gray-100/50 cursor-pointer active:bg-gray-100 transition-colors">
+                                <div onClick={() => setIsMemberDatePickerOpen(true)} className="bg-gray-50/50 p-4 rounded-[24px] border border-black/5 cursor-pointer active:bg-gray-100 transition-colors">
                                     <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest ml-1">День рождения</label>
                                     <div className="text-[17px] font-medium text-black mt-1">{newMemberBirthday.toLocaleDateString('ru-RU')}</div>
                                 </div>
@@ -993,7 +1009,7 @@ export default function CalendarPage() {
                     >
                         <motion.div
                             initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                            className="bg-white rounded-[40px] w-full max-w-sm p-8 shadow-2xl relative"
+                            className="bg-white rounded-[40px] w-full max-w-sm p-8 border border-black/5 relative"
                             onClick={e => e.stopPropagation()}
                         >
                             <div className="flex items-center justify-between mb-8">

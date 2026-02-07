@@ -11,6 +11,7 @@ import { useCart } from '@/context/CartContext'
 import { useFavorites } from '@/context/FavoritesContext'
 import { toast } from 'sonner'
 import { BottomNav } from '@/components/BottomNav'
+import { AnimatedBackground } from '@/components/features/home/AnimatedBackground'
 
 export default function ProductContent({ productId }: { productId: string }) {
     const router = useRouter()
@@ -106,16 +107,18 @@ export default function ProductContent({ productId }: { productId: string }) {
     }
 
     return (
-        <div className="min-h-screen bg-white pb-32">
+        <div className="min-h-screen pb-32 relative overflow-x-hidden">
+            <AnimatedBackground />
 
             {/* Custom Navigation */}
-            <div className={`fixed top-0 left-0 right-0 p-4 z-60 transition-all duration-300 ${scrolled ? 'bg-white/80 backdrop-blur-xl shadow-sm pt-4' : 'bg-transparent pt-6'}`}>
+            {/* Custom Navigation */}
+            <div className={`fixed top-0 left-0 right-0 p-4 z-60 transition-all duration-300 ${scrolled ? 'bg-white/30 backdrop-blur-md border-b border-white/20 pt-4' : 'bg-transparent pt-6'}`}>
                 <div className="flex justify-between items-center max-w-lg mx-auto w-full">
                     <button
                         onClick={() => router.back()}
-                        className={`w-11 h-11 rounded-full flex items-center justify-center active:scale-90 transition-all duration-200 ${scrolled ? 'bg-gray-100' : 'bg-white/70 backdrop-blur-md shadow-sm'} text-black`}
+                        className="w-11 h-11 rounded-full flex items-center justify-center active:scale-90 transition-all duration-200 bg-white border border-black/5 text-black"
                     >
-                        <ChevronLeft size={24} className="-ml-0.5" />
+                        <ChevronLeft size={24} strokeWidth={1.5} className="-ml-0.5" />
                     </button>
 
                     <div className="flex gap-3">
@@ -127,9 +130,9 @@ export default function ProductContent({ productId }: { productId: string }) {
                                 toast.dismiss()
                                 toast.success(isFav ? "Удалено из избранного" : "Добавлено в избранное")
                             }}
-                            className={`w-11 h-11 rounded-full flex items-center justify-center active:scale-90 transition-all duration-200 ${scrolled ? 'bg-gray-100' : 'bg-white/70 backdrop-blur-md shadow-sm'} text-black`}
+                            className="w-11 h-11 rounded-full flex items-center justify-center active:scale-90 transition-all duration-200 bg-white border border-black/5 text-black"
                         >
-                            <Heart size={20} className={product && isFavorite(product.id) ? "fill-red-500 text-red-500 scale-110" : "scale-100"} />
+                            <Heart size={20} strokeWidth={1.5} className={product && isFavorite(product.id) ? "fill-red-500 text-red-500 scale-110" : "scale-100"} />
                         </button>
                     </div>
                 </div>
@@ -217,26 +220,26 @@ export default function ProductContent({ productId }: { productId: string }) {
             </div>
 
             {/* Content Container */}
-            <div className="relative -mt-6 bg-white rounded-t-[32px] px-6 pt-8 z-20">
+            <div className="relative -mt-8 bg-white rounded-t-[40px] px-6 pt-10 z-20 border-t border-black/5 min-h-screen">
                 <div className="flex flex-col gap-1 mb-6">
                     <div className="flex justify-between items-start gap-4">
-                        <h1 className="text-3xl font-black text-gray-900 leading-tight tracking-tight">{product.name}</h1>
+                        <h1 className="text-3xl font-black text-black leading-tight tracking-tighter lowercase">{product.name}</h1>
                         {product.is_hit && (
-                            <div className="shrink-0 px-3 py-1 rounded-full bg-black text-white text-[10px] font-bold uppercase tracking-wider">
-                                Хит
+                            <div className="shrink-0 px-3 py-1 rounded-full bg-black text-white text-[10px] font-black uppercase tracking-widest">
+                                хит
                             </div>
                         )}
                     </div>
                     <div className="flex items-baseline gap-2 mt-1">
-                        <span className="text-2xl font-bold text-gray-900">{product.price_display || `${product.price_raw.toLocaleString()} сум`}</span>
-                        {product.is_new && <span className="text-sm font-bold text-green-600 bg-green-50 px-2.5 py-0.5 rounded-lg">Новинка</span>}
+                        <span className="text-[26px] font-black text-black tracking-tight">{product.price_display || `${product.price_raw.toLocaleString()} сум`}</span>
+                        {product.is_new && <span className="text-[12px] font-black text-green-500 bg-green-500/10 px-2.5 py-1 rounded-[12px] uppercase">новинка</span>}
                     </div>
                 </div>
 
                 {/* Description */}
                 {product.description && (
-                    <div className="mb-8">
-                        <p className="text-[15px] leading-relaxed text-gray-500 font-medium">
+                    <div className="mb-8 p-5 bg-white rounded-[28px] border border-black/5">
+                        <p className="text-[15px] leading-relaxed text-black/60 font-black lowercase">
                             {product.description}
                         </p>
                     </div>
@@ -245,17 +248,17 @@ export default function ProductContent({ productId }: { productId: string }) {
                 {/* Composition Card */}
                 {composition.length > 0 && (
                     <div className="mb-10">
-                        <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-400 mb-4 px-2">Состав композиции</h3>
-                        <div className="bg-gray-50/50 rounded-[24px] p-2 border border-gray-100">
+                        <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-black/20 mb-4 px-2">состав композиции</h3>
+                        <div className="bg-white rounded-[32px] p-2 border border-black/5">
                             {composition.map((item: any, idx: number) => (
-                                <div key={idx} className="flex justify-between items-center p-3 last:border-0 border-b border-gray-100/80">
+                                <div key={idx} className="flex justify-between items-center p-4 last:border-0 border-b border-black/5">
                                     <div className="flex items-center gap-3">
-                                        <span className="text-[10px] font-bold text-gray-300 w-4">{String(idx + 1).padStart(2, '0')}</span>
-                                        <span className="text-[14px] font-bold text-gray-900 capitalize">{item.name}</span>
+                                        <span className="text-[10px] font-black text-black/20 w-4">{String(idx + 1).padStart(2, '0')}</span>
+                                        <span className="text-[14px] font-black text-black lowercase">{item.name}</span>
                                     </div>
-                                    <div className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-[10px]">
-                                        <span className="text-[10px] font-bold text-gray-400">x</span>
-                                        <span className="text-[13px] font-bold text-gray-900">{item.qty}</span>
+                                    <div className="flex items-center gap-1 bg-gray-50 px-3 py-1.5 rounded-[14px] border border-black/5">
+                                        <span className="text-[10px] font-black text-black/20">x</span>
+                                        <span className="text-[14px] font-black text-black">{item.qty}</span>
                                     </div>
                                 </div>
                             ))}
@@ -268,18 +271,18 @@ export default function ProductContent({ productId }: { productId: string }) {
                 {recommended.length > 0 && (
                     <div className="mb-8">
                         <div className="flex items-center justify-between mb-5 px-1">
-                            <h3 className="text-xl font-black text-gray-900 tracking-tight">Похожие</h3>
-                            <Link href="/" className="text-xs font-bold text-gray-400 uppercase tracking-wide">Все</Link>
+                            <h3 className="text-xl font-black text-black tracking-tighter lowercase">похожие</h3>
+                            <Link href="/" className="text-[11px] font-black text-black/20 uppercase tracking-widest">все</Link>
                         </div>
 
-                        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory -mx-6 px-6">
+                        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-6 snap-x snap-mandatory -mx-6 px-6">
                             {recommended.map((rec) => (
                                 <Link
                                     href={`/product/${rec.id}`}
                                     key={rec.id}
                                     className="min-w-[155px] snap-center flex flex-col gap-3 group"
                                 >
-                                    <div className="relative aspect-[3/4] rounded-[22px] overflow-hidden bg-gray-50 border border-gray-100/50">
+                                    <div className="relative aspect-[3/4] rounded-[28px] overflow-hidden bg-white border border-black/5">
                                         <Image
                                             src={rec.image}
                                             alt={rec.name}
@@ -287,10 +290,10 @@ export default function ProductContent({ productId }: { productId: string }) {
                                             className="object-cover group-hover:scale-110 transition-transform duration-500"
                                         />
                                     </div>
-                                    <div className="px-0.5">
-                                        <h4 className="font-bold text-[14px] text-gray-900 leading-tight mb-1 truncate">{rec.name}</h4>
-                                        <p className="text-[14px] font-extrabold text-black">
-                                            {rec.price_raw?.toLocaleString() || rec.price_display} сум
+                                    <div className="px-1">
+                                        <h4 className="font-black text-[14px] text-black leading-tight mb-1 truncate lowercase">{rec.name}</h4>
+                                        <p className="text-[15px] font-black text-black">
+                                            {rec.price_raw?.toLocaleString() || rec.price_display} <span className="text-[11px] text-black/20 uppercase">сум</span>
                                         </p>
                                     </div>
                                 </Link>
@@ -313,7 +316,7 @@ export default function ProductContent({ productId }: { productId: string }) {
                         return (
                             <>
                                 {/* Stepper */}
-                                <div className="h-[60px] bg-white border border-gray-100 rounded-[24px] px-2 flex items-center shadow-lg shadow-gray-200/50">
+                                <div className="h-[64px] bg-white border border-black/5 rounded-[28px] px-2 flex items-center">
                                     <button
                                         onClick={() => {
                                             if (isInCart) {
@@ -323,15 +326,15 @@ export default function ProductContent({ productId }: { productId: string }) {
                                                 setQty(Math.max(1, qty - 1));
                                             }
                                         }}
-                                        className="w-11 h-11 flex items-center justify-center rounded-[18px] hover:bg-gray-100 active:scale-95 transition-all text-gray-900"
+                                        className="w-12 h-12 flex items-center justify-center rounded-[20px] active:scale-95 transition-all text-black"
                                     >
                                         {(isInCart && displayQty === 1) ? (
-                                            <Trash2 size={18} className="text-red-500" />
+                                            <Trash2 size={20} className="text-red-500" />
                                         ) : (
-                                            <Minus size={20} strokeWidth={2.5} />
+                                            <Minus size={20} strokeWidth={3} />
                                         )}
                                     </button>
-                                    <span className="w-8 text-center font-bold text-lg text-gray-900">{displayQty}</span>
+                                    <span className="w-8 text-center font-black text-lg text-black">{displayQty}</span>
                                     <button
                                         onClick={() => {
                                             if (isInCart) {
@@ -340,24 +343,24 @@ export default function ProductContent({ productId }: { productId: string }) {
                                                 setQty(qty + 1);
                                             }
                                         }}
-                                        className="w-11 h-11 flex items-center justify-center rounded-[18px] hover:bg-black hover:text-white active:scale-95 transition-all text-gray-900"
+                                        className="w-12 h-12 flex items-center justify-center rounded-[20px] active:scale-95 transition-all text-black"
                                     >
-                                        <Plus size={20} strokeWidth={2.5} />
+                                        <Plus size={20} strokeWidth={3} />
                                     </button>
                                 </div>
 
                                 {/* Add / Go to Cart Button */}
                                 <button
                                     onClick={isInCart ? () => router.push('/cart') : handleAddToCart}
-                                    className="flex-1 h-[60px] bg-[#0a0a0a] text-white rounded-[24px] font-bold text-[17px] flex items-center justify-center gap-3 shadow-xl shadow-black/20 hover:scale-[1.02] active:scale-[0.98] transition-all overflow-hidden relative group"
+                                    className="flex-1 h-[64px] bg-black text-white rounded-[28px] font-black text-[17px] flex items-center justify-center gap-3 active:scale-[0.98] transition-all overflow-hidden relative group lowercase"
                                 >
                                     <span className="relative z-10">
-                                        {isInCart ? "Перейти в корзину" : "В корзину"}
+                                        {isInCart ? "в корзину" : "в корзину"}
                                     </span>
                                     {!isInCart && (
                                         <>
                                             <div className="w-px h-4 bg-white/20 relative z-10" />
-                                            <span className="relative z-10 text-white/90 font-medium">
+                                            <span className="relative z-10 text-white/90 font-black">
                                                 {((product.price_raw || 0) * displayQty).toLocaleString()}
                                             </span>
                                         </>

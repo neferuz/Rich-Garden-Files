@@ -22,6 +22,7 @@ class OrderBase(BaseModel):
     address: Optional[str] = None
     comment: Optional[str] = None
     payment_method: Optional[str] = None
+    delivery_time: Optional[str] = None
     extras: Optional[str] = None
     history: Optional[str] = "[]"
     created_at: Optional[datetime.datetime] = None

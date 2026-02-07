@@ -33,15 +33,15 @@ class TelegramUserCreate(TelegramUserBase):
 class TelegramUser(TelegramUserBase):
     id: int
     created_at: datetime.datetime
-
-class PhoneUpdate(BaseModel):
-    phone_number: str
-    addresses: List[Address] = [] 
+    addresses: List[Address] = []
     orders_count: int = 0
     total_spent: int = 0
     
     class Config:
         from_attributes = True
+
+class PhoneUpdate(BaseModel):
+    phone_number: str
 
 class RecentlyViewedBase(BaseModel):
     user_id: int

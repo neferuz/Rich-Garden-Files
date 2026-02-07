@@ -13,6 +13,28 @@ import { Order } from '@/services/api' // Use type from API
 // Removed static mock data
 
 
+// Helper to get structured date/time
+function getOrderDateTime(order: Order) {
+    if (order.deliveryTime?.toLowerCase().includes('готовности')) {
+        return {
+            date: order.date,
+            time: 'По готовности',
+            isReady: true
+        }
+    }
+
+    // Try to extract date and time from deliveryTime string if present
+    const dateMatch = order.deliveryTime?.match(/(\d{2}\.\d{2}\.\d{4})/)
+    // Match time like "14:00" or "14:00 - 15:00"
+    const timeMatch = order.deliveryTime?.match(/(\d{2}:\d{2}(?:\s*-\s*\d{2}:\d{2})?)/)
+
+    return {
+        date: dateMatch ? dateMatch[1] : order.date,
+        time: timeMatch ? timeMatch[1] : (order.deliveryTime || order.time),
+        isReady: false
+    }
+}
+
 function OrdersContent() {
     const searchParams = useSearchParams()
     const router = useRouter()
@@ -192,35 +214,59 @@ function OrdersContent() {
             {/* Orders List */}
             <div className="px-4 space-y-3">
                 {filteredOrders.length > 0 ? (
-                    filteredOrders.map((order) => (
-                        <Link
-                            key={order.id}
-                            href={`/orders?order=${order.id}`}
-                            scroll={false}
-                            className="block bg-white p-5 rounded-[24px] shadow-[0_6px_24px_rgba(0,0,0,0.06)] active:scale-[0.98] transition-transform"
-                        >
-                            <div className="flex justify-between items-start mb-3">
-                                <div className="flex items-center gap-2">
-                                    <span className="font-bold text-lg text-gray-900">№{order.id}</span>
-                                    {getTypeIcon(order.type)}
-                                </div>
-                                {getStatusBadge(order.status)}
-                            </div>
+                    filteredOrders.map((order) => {
+                        const { date, time, isReady } = getOrderDateTime(order)
 
-                            <div className="flex justify-between items-end">
-                                <div>
-                                    <p className="font-semibold text-gray-900">{order.client}</p>
-                                    <div className="flex items-center gap-2 mt-1 text-sm text-gray-500 font-medium">
-                                        <Clock size={14} className="text-gray-400" />
-                                        <span>{order.time}</span>
-                                        <span className="text-gray-300">•</span>
-                                        <span>{order.items.length} поз.</span>
+                        return (
+                            <Link
+                                key={order.id}
+                                href={`/orders?order=${order.id}`}
+                                scroll={false}
+                                className="block bg-white p-5 rounded-[24px] shadow-sm active:scale-[0.98] transition-transform"
+                            >
+                                {/* Row 1: ID and Status */}
+                                <div className="flex justify-between items-center mb-3">
+                                    <span className="font-extrabold text-xl text-gray-900">№{order.id}</span>
+                                    {getStatusBadge(order.status)}
+                                </div>
+
+                                {/* Row 2: Client */}
+                                <div className="mb-3">
+                                    <p className="text-lg font-bold text-gray-900 leading-tight">{order.client}</p>
+                                </div>
+
+                                {/* Row 3: Product Summary */}
+                                <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-100">
+                                    <div className="flex items-center gap-2 overflow-hidden">
+                                        {getTypeIcon(order.type)}
+                                        <p className="text-sm font-medium text-gray-600 truncate">
+                                            {order.items[0]?.name || 'Товары'}
+                                            {order.items.length > 1 && <span className="opacity-60 text-xs ml-1">+{order.items.length - 1}</span>}
+                                        </p>
+                                    </div>
+                                    <p className="text-sm font-bold text-gray-900 whitespace-nowrap">{order.items.length} шт.</p>
+                                </div>
+
+                                {/* Row 4 & 5: Date and Time Info Table */}
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm font-medium text-gray-400">Дата</span>
+                                        <span className="text-sm font-bold text-gray-900">{date}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm font-medium text-gray-400">Время</span>
+                                        <span className={`text-sm font-bold ${isReady ? 'text-amber-600' : 'text-gray-900'}`}>
+                                            {time}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center pt-1">
+                                        <span className="text-sm font-medium text-gray-400">Сумма</span>
+                                        <span className="text-base font-extrabold text-gray-900">{order.total.toLocaleString('ru-RU')}</span>
                                     </div>
                                 </div>
-                                <span className="font-bold text-gray-900 text-lg">{order.total.toLocaleString('ru-RU')}</span>
-                            </div>
-                        </Link>
-                    ))
+                            </Link>
+                        )
+                    })
                 ) : (
                     <div className="flex flex-col items-center justify-center py-20 text-center opacity-60">
                         <Package size={48} className="text-gray-300 mb-4" />
@@ -243,10 +289,8 @@ import ProtectedRoute from "@/components/ProtectedRoute"
 
 export default function OrdersPage() {
     return (
-        <ProtectedRoute allowedRoles={['owner', 'admin', 'manager', 'worker', 'courier', 'finance']}>
-            <Suspense fallback={<div className="min-h-screen bg-gray-50/50" />}>
-                <OrdersContent />
-            </Suspense>
-        </ProtectedRoute>
+        <Suspense fallback={<div className="min-h-screen bg-gray-50/50" />}>
+            <OrdersContent />
+        </Suspense>
     )
 }

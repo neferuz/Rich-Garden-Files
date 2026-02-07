@@ -69,7 +69,7 @@ export function Stories() {
                                     : "p-[1px] bg-gray-200"
                             )}>
                                 <div className={cn(
-                                    "w-full h-full rounded-full border-[2px] border-white overflow-hidden relative shadow-inner",
+                                    "w-full h-full rounded-full border-[2px] border-white overflow-hidden relative",
                                     story.bg_color || "bg-pink-100"
                                 )}>
                                     <img
@@ -222,7 +222,7 @@ export function Stories() {
 
                                 <button
                                     onClick={() => setActiveStoryIndex(null)}
-                                    className="w-full h-15 bg-white text-black font-bold text-[15px] rounded-[24px] shadow-[0_20px_40px_rgba(0,0,0,0.5)] active:scale-95 transition-transform flex items-center justify-center gap-2 pointer-events-auto"
+                                    className="w-full h-15 bg-white text-black font-bold text-[15px] rounded-[24px] border border-black/5 active:scale-95 transition-transform flex items-center justify-center gap-2 pointer-events-auto"
                                 >
                                     <span>Понятно</span>
                                     <ChevronRight size={18} />

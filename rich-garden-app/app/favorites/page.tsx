@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { useFavorites } from '@/context/FavoritesContext'
 import { BottomNav } from '@/components/BottomNav'
 import Link from 'next/link'
@@ -8,24 +9,33 @@ import { Heart, ShoppingBag, ChevronLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { ProductCard, type ProductCardProduct } from '@/components/features/catalog/ProductCard'
+import { AnimatedBackground } from "@/components/features/home/AnimatedBackground"
+import { cn } from "@/lib/utils"
 
 export default function FavoritesPage() {
     const { favorites, toggleFavorite } = useFavorites()
     const router = useRouter()
+    const [scrolled, setScrolled] = useState(false)
+
+    useEffect(() => {
+        const handleScroll = () => {
+            setScrolled(window.scrollY > 10)
+        }
+        window.addEventListener('scroll', handleScroll)
+        return () => window.removeEventListener('scroll', handleScroll)
+    }, [])
 
     if (favorites.length === 0) {
         return (
-            <div className="min-h-screen bg-white flex flex-col justify-center px-8 pb-24 relative overflow-hidden">
-                {/* Background Decoration */}
-                <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-red-50 rounded-full blur-3xl opacity-50" />
-                <div className="absolute bottom-[20%] left-[-10%] w-48 h-48 bg-pink-50 rounded-full blur-3xl opacity-50" />
+            <div className="min-h-screen relative flex flex-col justify-center px-8 pb-24 overflow-hidden selection:bg-black selection:text-white">
+                <AnimatedBackground />
 
                 <div className="flex flex-col gap-6 max-w-xs relative z-10">
                     <motion.div
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                        className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-2"
+                        className="w-16 h-16 bg-white shadow-sm border border-gray-100 rounded-2xl flex items-center justify-center mb-2"
                     >
                         <Heart size={32} className="text-red-500 fill-red-500/10" strokeWidth={1.5} />
                     </motion.div>
@@ -44,7 +54,7 @@ export default function FavoritesPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-                        className="text-[17px] leading-snug text-gray-500 font-medium"
+                        className="text-[17px] leading-snug text-gray-400 font-medium"
                     >
                         добавляйте товары в <span className="text-black font-semibold">избранное</span>, чтобы
                         они всегда были под <span className="text-black font-semibold">рукой</span>
@@ -57,7 +67,7 @@ export default function FavoritesPage() {
                     >
                         <Link
                             href="/"
-                            className="inline-flex items-center justify-center h-14 px-8 bg-black text-white font-bold rounded-none active:scale-95 transition-transform w-fit mt-4"
+                            className="inline-flex items-center justify-center h-14 px-8 bg-black text-white font-bold rounded-full active:scale-95 transition-transform w-fit mt-4"
                         >
                             На главную
                         </Link>
@@ -69,11 +79,16 @@ export default function FavoritesPage() {
     }
 
     return (
-        <main className="min-h-screen bg-[#f9fafb] pb-32">
+        <main className="min-h-screen relative pb-32 selection:bg-black selection:text-white">
+            <AnimatedBackground />
+
             {/* Header */}
-            <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-100">
+            <header className={cn(
+                "fixed top-0 inset-x-0 z-50 transition-all duration-300",
+                scrolled ? "bg-white/70 backdrop-blur-md border-b border-gray-100/50" : "bg-transparent"
+            )}>
                 <div className="px-4 h-16 flex items-center justify-between">
-                    <button onClick={() => router.back()} className="w-10 h-10 flex items-center justify-center -ml-2 rounded-full border border-black/10 bg-transparent active:scale-95 transition-transform">
+                    <button onClick={() => router.back()} className="w-10 h-10 flex items-center justify-center -ml-2 rounded-full border border-black/5 bg-transparent active:scale-95 transition-transform">
                         <ChevronLeft size={24} strokeWidth={1.5} className="text-black" />
                     </button>
 
@@ -87,8 +102,8 @@ export default function FavoritesPage() {
             </header>
 
             {/* Content — единые карточки */}
-            <div className="px-4 md:px-6 pt-6">
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
+            <div className="px-4 md:px-6 pt-20">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 xs:gap-4 md:gap-5">
                     {favorites.map((product) => {
                         const p: ProductCardProduct = {
                             id: product.id,

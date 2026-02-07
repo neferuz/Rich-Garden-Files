@@ -91,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 // 2. Check if user is an employee
                 try {
-                    const employeeData = await api.checkEmployeeAccess(telegramUser.id)
+                    const employeeData = await api.checkEmployeeAccess(telegramUser.id, telegramUser.username)
                     if (employeeData) {
                         setEmployee(employeeData)
                         console.log("Auth: Employee found:", employeeData.role)
@@ -109,7 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         setEmployee(null)
                     }
                 }
-                
+
                 console.log("Auth: Initialization complete")
             } catch (err) {
                 console.error("Auth: Error during initialization:", err)

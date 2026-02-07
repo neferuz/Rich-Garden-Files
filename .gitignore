@@ -26,15 +26,19 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
-# Node.js
-node_modules/
-.npm
-dist/
-.next/
-out/
-build/
-.cache/
+# Node.js - Global patterns for monorepo-like structures
+**/node_modules/
+**/.next/
+**/.npm
+**/dist/
+**/out/
+**/build/
+**.cache/
 .vercel
+
+# Uploads and Large Media (Should not be in Git)
+rich-garden-backend/app/static/uploads/
+**/uploads/
 
 # System
 .DS_Store

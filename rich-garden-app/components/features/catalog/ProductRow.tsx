@@ -13,11 +13,13 @@ export function ProductRow({
   products,
   categorySlug,
   telegramUserId,
+  isFeatured = false,
 }: {
   title: string;
   products: any[];
-  categorySlug: string;
+  categorySlug?: string;
   telegramUserId?: number;
+  isFeatured?: boolean;
 }) {
   const { toggleFavorite, isFavorite } = useFavorites();
   const { addToCart, cartItems, removeFromCart } = useCart();
@@ -42,80 +44,119 @@ export function ProductRow({
   if (products.length === 0) return null;
 
   return (
-    <div id={`section-${title}`}>
-      <div className="px-6 mt-8 mb-4 flex items-center justify-between">
-        <h3 className="text-[20px] font-bold text-gray-900 tracking-tight">{title}</h3>
-        <Link
-          href={`/catalog/${categorySlug}`}
-          className="bg-[#DBE6FF] px-4 py-1.5 rounded-full flex items-center gap-1.5 active:scale-95 transition-transform"
-        >
-          <span className="text-[13px] font-bold text-blue-900 mb-[1px]">все</span>
-          <ArrowUpRight size={16} className="text-blue-900" />
-        </Link>
-      </div>
-
-      <div className="relative">
-        <div
-          className="flex gap-4 overflow-x-auto no-scrollbar px-6 md:px-8 py-2 snap-x snap-mandatory"
-          onScroll={handleScroll}
-        >
-          {products.map((product) => {
-            const p: ProductCardProduct = {
-              id: product.id,
-              name: product.name,
-              price: product.price,
-              image: product.image || "/placeholder.png",
-              isHit: product.isHit,
-              isNew: product.isNew,
-            };
-            return (
-              <ProductCard
-                key={product.id}
-                product={p}
-                variant="row"
-                isFavorite={isFavorite(product.id)}
-                isInCart={isInCart(product.id)}
-                showFavorite
-                showCart
-                onCardClick={() => handleProductClick(product.id)}
-                onFavoriteClick={() => {
-                  toggleFavorite({
-                    id: product.id,
-                    name: product.name,
-                    price: product.price,
-                    image: product.image,
-                  });
-                  toast.dismiss();
-                  toast.success(
-                    isFavorite(product.id) ? "Удалено из избранного" : "Добавлено в избранное",
-                    { description: product.name, duration: 2000 }
-                  );
-                }}
-                onCartClick={() => {
-                  if (isInCart(product.id)) {
-                    removeFromCart(product.id);
-                    toast.error("Удалено из корзины", { description: product.name });
-                  } else {
-                    addToCart(product);
-                  }
-                }}
-              />
-            );
-          })}
+    <div
+      id={`section-${title}`}
+      className={`mb-0 py-4 transition-all duration-500 ${isFeatured ? 'bg-gradient-to-r from-gray-50 via-gray-100/30 to-gray-50 border border-gray-200/60 relative overflow-hidden rounded-[32px] mx-2' : ''}`}
+    >
+      {isFeatured && (
+        <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
+          <ArrowUpRight size={100} className="text-black rotate-12" />
         </div>
-
-        {products.length > 2 && (
-          <div className="px-6 mt-6 flex justify-center">
-            <div className="bg-gray-200 rounded-full h-1 w-24 overflow-hidden relative">
-              <motion.div
-                className="absolute top-0 bottom-0 bg-black rounded-full w-8"
-                animate={{ left: `${scrollProgress * (96 - 32)}px` }}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              />
-            </div>
-          </div>
+      )}
+      <div className="px-6 pb-4 flex items-center justify-between relative z-10">
+        <div className="flex flex-col">
+          {isFeatured && <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Готовые к отправке</span>}
+          <h3 className={`text-[22px] font-black tracking-tight ${isFeatured ? 'text-black' : 'text-black'}`}>{title}</h3>
+        </div>
+        {categorySlug && (
+          <Link
+            href={`/catalog/${categorySlug}`}
+            className={`${isFeatured ? 'bg-white/60 hover:bg-white text-black' : 'bg-white/40 text-black'} backdrop-blur-md px-4 py-1.5 rounded-full flex items-center gap-1.5 active:scale-95 transition-all border border-white/60`}
+          >
+            <span className="text-[12px] font-bold">{isFeatured ? 'смотреть' : 'все'}</span>
+            <ArrowUpRight size={14} className="text-black" />
+          </Link>
         )}
       </div>
+
+      <div
+        className="flex overflow-x-auto no-scrollbar gap-4 px-6 pb-2 snap-x relative z-10"
+        onScroll={handleScroll}
+      >
+        {products.map((product) => {
+          // Parse additional images from JSON string if they exist
+          let additionalImages: string[] = [];
+          if (product.images) {
+            try {
+              const parsed = JSON.parse(product.images);
+              if (Array.isArray(parsed)) {
+                additionalImages = parsed;
+              }
+            } catch (e) {
+              console.error("Failed to parse product images", e);
+            }
+          }
+
+          // Combine primary image with additional ones, ensuring no duplicates
+          const uniqueImages = Array.from(new Set([product.image, ...additionalImages])).filter(Boolean) as string[];
+
+          // Format price robustly
+          const formattedPrice = product.price
+            ? (product.price.toString().includes('сум')
+              ? product.price
+              : `${(product.price_raw || parseInt(product.price.toString().replace(/\D/g, '')) || 0).toLocaleString()} сум`)
+            : `${(product.price_raw || 0).toLocaleString()} сум`;
+
+          const p: ProductCardProduct = {
+            id: product.id,
+            name: product.name,
+            price: formattedPrice,
+            image: product.image || "/placeholder.png",
+            images: uniqueImages,
+            isHit: product.isHit,
+            isNew: product.isNew,
+          };
+          return (
+            <ProductCard
+              key={product.id}
+              product={p}
+              variant="row"
+              isFavorite={isFavorite(product.id)}
+              isInCart={isInCart(product.id)}
+              showFavorite
+              showCart
+              onCardClick={() => handleProductClick(product.id)}
+              onFavoriteClick={() => {
+                toggleFavorite({
+                  id: product.id,
+                  name: product.name,
+                  price: product.price,
+                  image: product.image,
+                });
+                toast.dismiss();
+                toast.success(
+                  isFavorite(product.id) ? "Удалено из избранного" : "Добавлено в избранное",
+                  { description: product.name, duration: 2000 }
+                );
+              }}
+              onCartClick={() => {
+                if (isInCart(product.id)) {
+                  removeFromCart(product.id);
+                  toast.error("Удалено из корзины", { description: product.name });
+                } else {
+                  addToCart(product);
+                  toast.success("Добавлено", { description: product.name, duration: 1500 });
+                }
+              }}
+            />
+          );
+        })}
+      </div>
+
+      {products.length > 2 && (
+        <div className="px-6 mb-4 mt-1">
+          <div className="h-[3px] w-1/3 mx-auto bg-black/5 rounded-full overflow-hidden">
+            <motion.div
+              className="h-full bg-black/40 rounded-full"
+              initial={{ width: "20%" }}
+              animate={{
+                width: `${20 + scrollProgress * 80}%`,
+              }}
+              transition={{ type: "spring", bounce: 0, duration: 0.1 }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

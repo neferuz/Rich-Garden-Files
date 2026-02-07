@@ -15,6 +15,7 @@ class EmployeeCreate(EmployeeBase):
 
 class EmployeeUpdate(BaseModel):
     full_name: Optional[str] = None
+    telegram_id: Optional[int] = None
     role: Optional[str] = None
     photo_url: Optional[str] = None
     is_active: Optional[bool] = None

@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, DateTime
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, DateTime, BigInteger
 from sqlalchemy.orm import relationship
 import datetime
 from app.database import Base
@@ -7,7 +7,7 @@ class TelegramUser(Base):
     __tablename__ = "telegram_users"
     
     id = Column(Integer, primary_key=True, index=True)
-    telegram_id = Column(Integer, unique=True, index=True, nullable=True)
+    telegram_id = Column(BigInteger, unique=True, index=True, nullable=True)
     first_name = Column(String)
     username = Column(String, nullable=True)
     photo_url = Column(String, nullable=True)

@@ -7,13 +7,15 @@ import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import { api } from '@/lib/api'
 import { useFavorites } from '@/context/FavoritesContext'
+import { AnimatedBackground } from "@/components/features/home/AnimatedBackground"
+import { cn } from "@/lib/utils"
 
 function formatPhoneNumber(phone: string | null | undefined): string | null {
     if (!phone) return null;
-    
+
     // Remove all non-digit characters except +
     const cleaned = phone.replace(/[^\d+]/g, '');
-    
+
     // Format Uzbek phone numbers: +998901234567 -> +998 90 123 45 67
     if (cleaned.startsWith('+998')) {
         const match = cleaned.match(/^\+998(\d{2})(\d{3})(\d{2})(\d{2})$/);
@@ -25,7 +27,7 @@ function formatPhoneNumber(phone: string | null | undefined): string | null {
             return `+998 ${cleaned.slice(4, 6)} ${cleaned.slice(6, 9)} ${cleaned.slice(9, 11)} ${cleaned.slice(11, 13)}`;
         }
     }
-    
+
     // Return original if can't format
     return phone;
 }
@@ -93,37 +95,35 @@ export default function ProfilePage() {
     ]
 
     return (
-        <main className="min-h-screen bg-[#f9fafb] pb-32">
+        <main className="min-h-screen pb-32 relative overflow-x-hidden pt-16">
+            <AnimatedBackground />
 
             {/* Header */}
-            <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-100/50">
+            <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-black/5">
                 <div className="px-6 h-16 flex items-center justify-between">
-                    <h1 className="text-[26px] font-bold text-black lowercase tracking-tight leading-none">профиль</h1>
-                    <button className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-gray-100 text-gray-400 active:scale-95 transition-all hover:text-black hover:border-black/10">
-                        <LogOut size={18} strokeWidth={1.5} />
+                    <h1 className="text-[26px] font-black text-black lowercase tracking-tighter leading-none">профиль</h1>
+                    <button className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-black/5 text-black active:scale-95 transition-all">
+                        <LogOut size={18} strokeWidth={2.5} />
                     </button>
                 </div>
             </header>
 
             {/* Content */}
-            <div className="px-4 py-6 space-y-6 relative">
-                {/* Subtle Background Decorations */}
-                <div className="absolute top-20 right-0 w-64 h-64 bg-red-50/50 rounded-full blur-3xl -z-10" />
-                <div className="absolute bottom-40 left-0 w-48 h-48 bg-blue-50/50 rounded-full blur-3xl -z-10" />
+            <div className="px-4 py-6 space-y-6 relative z-10">
 
                 {/* Profile Card */}
                 <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="bg-white rounded-[32px] p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/50"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white rounded-[36px] p-6 border border-black/5"
                 >
                     <div className="flex flex-col items-center text-center">
                         <div className="relative mb-4">
-                            <div className="w-24 h-24 rounded-full bg-gray-50 border-[3px] border-white shadow-xl overflow-hidden ring-1 ring-gray-100">
+                            <div className="w-24 h-24 rounded-full bg-white border-[3px] border-white overflow-hidden ring-1 ring-black/5">
                                 {telegramUser?.photo_url ? (
                                     <img src={telegramUser.photo_url} alt="Ava" className="w-full h-full object-cover" />
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-gray-50 text-3xl font-bold text-gray-200 uppercase">
+                                    <div className="w-full h-full flex items-center justify-center bg-black/5 text-3xl font-black text-black/10 uppercase">
                                         {telegramUser?.first_name?.[0] || 'U'}
                                     </div>
                                 )}
@@ -137,14 +137,14 @@ export default function ProfilePage() {
                             {formatPhoneNumber(telegramUser?.phone_number) || 'Нет номера'}
                         </p>
 
-                        <div className="grid grid-cols-2 gap-4 w-full py-4 border-t border-gray-50 mt-2">
+                        <div className="grid grid-cols-2 gap-4 w-full py-4 border-t border-black/5 mt-2">
                             <div className="flex flex-col items-center">
                                 <span className="text-[18px] font-black text-black">{totalOrders}</span>
-                                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">заказов</span>
+                                <span className="text-[11px] font-black text-black/30 uppercase tracking-widest">заказов</span>
                             </div>
-                            <div className="flex flex-col items-center border-l border-gray-50">
+                            <div className="flex flex-col items-center border-l border-black/5">
                                 <span className="text-[18px] font-black text-black">{favorites.length}</span>
-                                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">избранное</span>
+                                <span className="text-[11px] font-black text-black/30 uppercase tracking-widest">избранное</span>
                             </div>
                         </div>
                     </div>
@@ -155,16 +155,16 @@ export default function ProfilePage() {
                     {menuItems.map((item, i) => (
                         <motion.div
                             key={i}
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.1 + i * 0.05 }}
                         >
-                            <Link href={item.href} className="flex items-center justify-between p-4 bg-white rounded-[24px] border border-gray-100 shadow-sm active:scale-[0.98] transition-all group">
+                            <Link href={item.href} className="flex items-center justify-between p-4 bg-white rounded-[28px] border border-black/5 active:scale-[0.98] transition-all group">
                                 <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-2xl bg-gray-50 flex items-center justify-center text-black group-hover:bg-black group-hover:text-white transition-colors duration-300">
-                                        <item.icon size={18} strokeWidth={2} />
+                                    <div className="w-10 h-10 rounded-2xl bg-gray-50 flex items-center justify-center text-black group-hover:bg-black group-hover:text-white transition-all duration-300">
+                                        <item.icon size={18} strokeWidth={2.5} />
                                     </div>
-                                    <span className="text-[16px] font-bold text-gray-900 lowercase tracking-tight">{item.label}</span>
+                                    <span className="text-[16px] font-medium text-black lowercase tracking-tighter">{item.label}</span>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     {item.badge && (

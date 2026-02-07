@@ -25,20 +25,32 @@ export async function generateStaticParams() {
 
         const categories = new Set<string>(fallbackCategories)
 
+        const mapping: Record<string, string> = {
+            'available': 'В наличии',
+            'в наличии': 'В наличии',
+            'mix': 'Миксы',
+            'roses': 'Розы',
+            'peonies': 'Пионы',
+            'tulips': 'Тюльпаны',
+            'boxes': 'Коробки',
+            'baskets': 'Корзины',
+            'wedding': 'Свадебные'
+        }
+
         data.forEach((p: any) => {
-            const isBouquet = !p.is_ingredient && p.composition && p.composition !== "[]"
+            const isBouquet = !p.is_ingredient && p.stock_quantity > 0
             if (isBouquet && p.category) {
                 const raw = p.category;
-                const lower = p.category.toLowerCase();
+                const lower = p.category.toLowerCase().trim();
+                const mapped = (mapping[lower] || lower).toLowerCase();
 
-                // Add all variations to be absolutely sure we match the route
+                // Add variations to pre-generate paths
                 categories.add(raw);
                 categories.add(lower);
+                categories.add(mapped);
                 categories.add(encodeURIComponent(raw));
                 categories.add(encodeURIComponent(lower));
-
-                // Also add normalized versions
-                categories.add(lower.normalize('NFC'));
+                categories.add(encodeURIComponent(mapped));
             }
         })
 

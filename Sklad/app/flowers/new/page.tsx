@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion"
 
 // Default categories for bouquets (mapping to slugs used in the shop app)
 const DEFAULT_BOUQUET_CATEGORIES = [
+    { id: 'available', label: 'В наличии' },
     { id: 'mix', label: 'Авторский' },
     { id: 'roses', label: 'Розы' },
     { id: 'peonies', label: 'Пионы' },
@@ -308,7 +309,7 @@ function CreateBouquetContent() {
                                     }}
                                     className="flex items-center gap-1 text-xs font-bold text-blue-600 uppercase tracking-wide pr-1"
                                 >
-                                    <Plus size={12} strokeWidth={3} /> Своя
+                                    <Plus size={12} strokeWidth={3} /> Новая
                                 </button>
                             )}
                         </div>

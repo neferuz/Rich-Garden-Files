@@ -61,30 +61,34 @@ export default function CategoryContent({ categorySlug }: { categorySlug: string
     useEffect(() => {
         // Fetch all products to determine active categories
         api.getProducts().then(data => {
-            const bouquets = data.filter(p => !p.is_ingredient && p.composition && p.composition !== "[]" && p.stock_quantity > 0)
+            const bouquets = data.filter(p => !p.is_ingredient && p.stock_quantity > 0)
 
             // Extract unique categories
             const cats = new Set<string>()
             const mapping: Record<string, string> = {
-                'mix': 'Миксы',
+                'available': 'В наличии',
+                'в наличии': 'В наличии',
+                'mix': 'Авторские',
                 'roses': 'Розы',
                 'peonies': 'Пионы',
                 'tulips': 'Тюльпаны',
                 'boxes': 'Коробки',
                 'baskets': 'Корзины',
-                'wedding': 'Свадебные',
-                'dried': 'Сухоцветы'
+                'wedding': 'Свадебные'
             }
 
             const activeCats = [{ id: 'all', name: 'Все' }]
             const seen = new Set(['all'])
 
             bouquets.forEach(p => {
-                const catId = p.category?.toLowerCase() || 'mix'
+                const catRaw = p.category?.toLowerCase() || 'mix'
+                const mappedName = mapping[catRaw] || p.category
+                const catId = mappedName.toLowerCase() // Use mapped name as ID for URL consistency
+
                 if (!seen.has(catId)) {
                     activeCats.push({
                         id: catId,
-                        name: mapping[catId] || p.category
+                        name: mappedName
                     })
                     seen.add(catId)
                 }
@@ -94,7 +98,11 @@ export default function CategoryContent({ categorySlug }: { categorySlug: string
             // Filter products for the current view
             const filtered = decodedSlug === 'all'
                 ? bouquets
-                : bouquets.filter(p => p.category?.toLowerCase() === decodedSlug)
+                : bouquets.filter(p => {
+                    const pCat = (p.category || '').toLowerCase().trim();
+                    const mapped = (mapping[pCat] || pCat).toLowerCase();
+                    return mapped === decodedSlug.toLowerCase().trim();
+                })
 
             // Sort products
             let sorted = filtered.sort((a, b) => {

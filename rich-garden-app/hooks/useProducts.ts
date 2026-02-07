@@ -8,6 +8,7 @@ export interface Product {
     price: string;
     price_raw: number;
     image: string;
+    images?: string;
     rating: number;
     isHit: boolean;
     isNew: boolean;
@@ -29,39 +30,52 @@ export function useProducts() {
                 // Filter ONLY bouquets (No ingredients) AND In Stock
                 // Ослаблен фильтр: убрана проверка на composition !== "[]", так как некоторые букеты могут иметь пустой состав
                 const bouquets = data.filter((p: any) => !p.is_ingredient && p.stock_quantity > 0).map((p: any) => ({
-                id: p.id,
-                name: p.name,
-                category: p.category,
-                price: p.price_display || `${p.price_raw.toLocaleString()} сум`,
-                image: p.image ? (p.image.startsWith('http') ? p.image : p.image) : '/placeholder.png',
-                rating: p.rating,
-                isHit: p.is_hit,
-                isNew: p.is_new,
-                price_raw: p.price_raw
-            }));
+                    id: p.id,
+                    name: p.name,
+                    category: p.category,
+                    price: p.price_display || `${p.price_raw.toLocaleString()} сум`,
+                    image: p.image ? (p.image.startsWith('http') ? p.image : p.image) : '/placeholder.png',
+                    images: p.images || "[]",
+                    rating: p.rating,
+                    isHit: p.is_hit,
+                    isNew: p.is_new,
+                    price_raw: p.price_raw
+                }));
 
-            setProducts(bouquets);
+                setProducts(bouquets);
 
-            // Derive unique categories
-            const BOUQUET_MAPPING: Record<string, string> = {
-                'mix': 'Авторские',
-                'roses': 'Розы',
-                'peonies': 'Пионы',
-                'tulips': 'Тюльпаны',
-                'boxes': 'Коробки',
-                'baskets': 'Корзины',
-                'wedding': 'Свадебные'
-            };
+                // Derive unique categories
+                const BOUQUET_MAPPING: Record<string, string> = {
+                    'available': 'В наличии',
+                    'в наличии': 'В наличии',
+                    'mix': 'Авторские',
+                    'roses': 'Розы',
+                    'peonies': 'Пионы',
+                    'tulips': 'Тюльпаны',
+                    'boxes': 'Коробки',
+                    'baskets': 'Корзины',
+                    'wedding': 'Свадебные'
+                };
 
-            const catsSet = new Set<string>(["Все"]);
-            bouquets.forEach((b: Product) => {
-                if (b.category) {
-                    const mapped = BOUQUET_MAPPING[b.category.toLowerCase()];
-                    // Если есть маппинг - используем его, иначе используем оригинальное название категории
-                    catsSet.add(mapped || b.category);
-                }
-            });
-            setCategories(Array.from(catsSet));
+                const catsSet = new Set<string>(["Все"]);
+                bouquets.forEach((b: any) => {
+                    if (b.category) {
+                        const rawCat = b.category.trim().toLowerCase();
+                        const mapped = BOUQUET_MAPPING[rawCat];
+                        catsSet.add(mapped || b.category.trim());
+                    }
+                });
+
+                // Sort: "Все" first, then "В наличии", then others
+                const sortedCats = Array.from(catsSet).sort((a, b) => {
+                    if (a === "Все") return -1;
+                    if (b === "Все") return 1;
+                    if (a === "В наличии") return -1;
+                    if (b === "В наличии") return 1;
+                    return 0;
+                });
+
+                setCategories(sortedCats);
             })
             .catch(err => {
                 console.error("Failed to load products", err);
@@ -75,6 +89,8 @@ export function useProducts() {
         if (category === "Все") return products;
 
         const BOUQUET_MAPPING: Record<string, string> = {
+            'available': 'В наличии',
+            'в наличии': 'В наличии',
             'mix': 'Авторские',
             'roses': 'Розы',
             'peonies': 'Пионы',

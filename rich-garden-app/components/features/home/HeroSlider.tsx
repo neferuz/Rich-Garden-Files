@@ -18,7 +18,7 @@ export function HeroSlider() {
             .finally(() => setLoading(false));
     }, []);
 
-    if (loading) return <div className="w-full h-[420px] bg-gray-50 flex items-center justify-center animate-pulse"></div>;
+    if (loading) return <div className="w-full h-[60vh] bg-gray-50 flex items-center justify-center animate-pulse"></div>;
     if (banners.length === 0) return null;
 
     const currentBanner = banners[currentSlide];
@@ -26,19 +26,17 @@ export function HeroSlider() {
     // Extract hex color if it matches bg-[#...] pattern
     const bgHexMatch = currentBanner.bg_color.match(/bg-\[(#[a-fA-F0-9]{3,6})\]/);
     const bgStyle = bgHexMatch ? { backgroundColor: bgHexMatch[1] } : {};
-    // If we found a hex match, don't use the class to avoid conflicts (though inline style wins)
-    // If no match, pass the original string as it might be a standard class like 'bg-white'
     const bgClass = bgHexMatch ? '' : currentBanner.bg_color;
 
     return (
-        <div className="relative w-full h-[420px] overflow-hidden">
+        <div className="relative w-full h-[540px] overflow-hidden bg-gray-50">
             <AnimatePresence mode="wait">
                 <motion.div
                     key={currentSlide}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 0.4 }}
+                    transition={{ duration: 0.6 }}
                     drag="x"
                     dragConstraints={{ left: 0, right: 0 }}
                     dragElastic={1}
@@ -50,66 +48,82 @@ export function HeroSlider() {
                             setCurrentSlide((prev) => (prev - 1 + banners.length) % banners.length);
                         }
                     }}
+                    className={`absolute inset-0 ${bgClass} flex flex-col justify-end items-center text-center pb-16 sm:pb-20 px-8 cursor-grab active:cursor-grabbing`}
                     style={bgStyle}
-                    className={`absolute inset-0 ${bgClass} flex flex-col justify-center px-6 cursor-grab active:cursor-grabbing`}
                 >
                     {currentBanner.image_url && (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img
-                            src={currentBanner.image_url.startsWith('http') ? currentBanner.image_url : `http://127.0.0.1:8000${currentBanner.image_url}`}
-                            alt=""
-                            className="absolute inset-0 w-full h-full object-cover"
-                        />
+                        <>
+                            {/* Background Image with Ultra-Smooth Ken Burns */}
+                            <motion.img
+                                initial={{ scale: 1.15 }}
+                                animate={{ scale: 1.05 }}
+                                transition={{ duration: 15, ease: "linear" }}
+                                src={currentBanner.image_url.startsWith('http') ? currentBanner.image_url : `http://127.0.0.1:8000${currentBanner.image_url}`}
+                                alt={currentBanner.title}
+                                className="absolute inset-0 w-full h-full object-cover"
+                            />
+                            {/* Bottom-Focused Gradient for Text Contrast */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent z-0 pointer-events-none" />
+                        </>
                     )}
 
-                    {/* Text Content */}
-                    <div className="relative z-10 flex flex-col items-start w-full pt-10">
+                    {/* Centered-Bottom Content */}
+                    <div className="relative z-10 flex flex-col items-center max-w-lg">
                         <motion.h2
                             initial={{ y: 20, opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
-                            transition={{ delay: 0.1 }}
-                            style={{ color: currentBanner.title_color || '#000000' }}
-                            className="text-[40px] font-extrabold text-black leading-[1.05] mb-3 tracking-tight"
+                            transition={{ delay: 0.2, duration: 0.8, ease: "easeOut" }}
+                            style={{ color: currentBanner.title_color || '#FFFFFF' }}
+                            className="text-[32px] sm:text-[44px] leading-[1] font-black mb-2 tracking-tighter uppercase drop-shadow-lg"
                         >
                             {currentBanner.title}
                         </motion.h2>
 
                         <motion.p
-                            initial={{ y: 20, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            transition={{ delay: 0.2 }}
-                            style={{ color: currentBanner.subtitle_color || '#000000' }}
-                            className="text-sm font-semibold text-black/80 mb-8 whitespace-pre-line leading-relaxed"
+                            initial={{ y: 15, opacity: 0 }}
+                            animate={{ opacity: 0.9, y: 0 }}
+                            transition={{ delay: 0.3, duration: 0.8 }}
+                            style={{ color: currentBanner.subtitle_color || '#FFFFFF' }}
+                            className="text-[13px] sm:text-[15px] font-medium mb-6 max-w-[280px] sm:max-w-md leading-tight opacity-90 drop-shadow-md"
                         >
                             {currentBanner.subtitle}
                         </motion.p>
 
-                        {/* Button */}
-                        <motion.button
-                            initial={{ y: 20, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            transition={{ delay: 0.3 }}
-                            style={{
-                                backgroundColor: currentBanner.button_bg_color || '#000000',
-                                color: currentBanner.button_text_color || '#FFFFFF'
-                            }}
-                            className="px-6 py-4 bg-black text-white text-[10px] font-bold uppercase tracking-widest flex items-center gap-3 hover:opacity-90 active:scale-95 transition-all"
-                        >
-                            {currentBanner.button_text}
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
-                        </motion.button>
+                        {/* Compact Luxury Button */}
+                        {currentBanner.button_text && (
+                            <motion.button
+                                initial={{ y: 10, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                transition={{ delay: 0.4, duration: 0.8 }}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.98 }}
+                                style={{
+                                    backgroundColor: currentBanner.button_bg_color || '#FFFFFF',
+                                    color: currentBanner.button_text_color || '#000000'
+                                }}
+                                className="px-8 py-3 text-[11px] font-black uppercase tracking-[0.2em] rounded-full border border-black/5 transition-all"
+                            >
+                                {currentBanner.button_text}
+                            </motion.button>
+                        )}
                     </div>
 
-                    {/* Dots (Centered Bottom) */}
-                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-20">
-                        {banners.map((_, idx) => (
-                            <div
-                                key={idx}
-                                onClick={() => setCurrentSlide(idx)}
-                                className={`h-1.5 w-1.5 rounded-full transition-all duration-300 cursor-pointer ${currentSlide === idx ? 'bg-black scale-125' : 'bg-black/20 hover:bg-black/40'}`}
-                            />
-                        ))}
-                    </div>
+                    {/* Navigation Dots - Centered and only shown if more than 1 banner */}
+                    {banners.length > 1 && (
+                        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-20">
+                            {banners.map((_, idx) => (
+                                <motion.div
+                                    key={idx}
+                                    onClick={() => setCurrentSlide(idx)}
+                                    animate={{
+                                        width: currentSlide === idx ? 24 : 6,
+                                        backgroundColor: currentSlide === idx ? (currentBanner.title_color || '#FFFFFF') : "rgba(255,255,255,0.3)"
+                                    }}
+                                    className="h-1.5 rounded-full cursor-pointer transition-all duration-300"
+                                />
+                            ))}
+                        </div>
+                    )}
 
                 </motion.div>
             </AnimatePresence>

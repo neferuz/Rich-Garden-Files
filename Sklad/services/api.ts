@@ -48,6 +48,7 @@ export type Order = {
     address?: string;
     comment?: string;
     paymentMethod?: string;
+    deliveryTime?: string;
     extras?: any;
     items: OrderItem[];
     history?: any[];
@@ -142,6 +143,13 @@ export const api = {
         return res.json();
     },
 
+    async deleteExpense(id: number): Promise<void> {
+        const res = await fetch(`${API_URL}/expenses/${id}`, {
+            method: 'DELETE',
+        });
+        if (!res.ok) throw new Error('Failed to delete expense');
+    },
+
     async uploadImage(file: File): Promise<{ url: string }> {
         const formData = new FormData();
         formData.append('file', file);
@@ -225,6 +233,7 @@ export const api = {
             type: 'delivery', // Defaulting for now as backend doesn't distinguishing yet
             address: o.address,
             paymentMethod: o.payment_method,
+            deliveryTime: o.delivery_time,
             extras: (() => {
                 try { return o.extras ? (typeof o.extras === 'string' ? JSON.parse(o.extras) : o.extras) : {} }
                 catch (e) { return {} }
@@ -355,8 +364,11 @@ export const api = {
         return res.json();
     },
 
-    async checkEmployeeAccess(telegramId: number): Promise<Employee | null> {
-        const res = await fetch(`${API_URL}/employees/check/${telegramId}`);
+    async checkEmployeeAccess(telegramId: number, username?: string): Promise<Employee | null> {
+        const url = username
+            ? `${API_URL}/employees/check/${telegramId}?username=${encodeURIComponent(username)}`
+            : `${API_URL}/employees/check/${telegramId}`;
+        const res = await fetch(url);
         if (res.status === 404) {
             return null; // User is not an employee
         }
@@ -706,7 +718,7 @@ export type Banner = {
     subtitle: string;
     button_text: string;
     bg_color: string;
-    image_url?: string;
+    image_url?: string | null;
     link?: string;
 
     title_color?: string;

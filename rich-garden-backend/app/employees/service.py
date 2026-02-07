@@ -29,14 +29,45 @@ async def create_employee(db: Session, employee: schemas.EmployeeCreate):
     
     return repository.create_employee(db, employee, photo_url=photo_url)
 
-def update_employee(db: Session, employee_id: int, employee_update: schemas.EmployeeUpdate):
+async def update_employee(db: Session, employee_id: int, employee_update: schemas.EmployeeUpdate):
+    from app.services import telegram
+    
+    # If telegram_id is updated, try to refresh photo
+    if employee_update.telegram_id is not None:
+        try:
+            photo_url = await telegram.get_chat_photo(employee_update.telegram_id)
+            if photo_url:
+                employee_update.photo_url = photo_url
+        except Exception as e:
+            print(f"Warning: Could not refresh photo for updated user {employee_update.telegram_id}: {e}")
+
     return repository.update_employee(db, employee_id, employee_update)
 
 def delete_employee(db: Session, employee_id: int):
     return repository.delete_employee(db, employee_id)
 
-def check_access(db: Session, telegram_id: int):
+async def check_access(db: Session, telegram_id: int, username: str = None):
     emp = repository.get_by_telegram_id(db, telegram_id)
     if not emp:
         return None
+    
+    # Update info if missing
+    needs_update = False
+    update_data = {}
+    
+    if username and not emp.username:
+        update_data['username'] = username
+        needs_update = True
+        
+    if not emp.photo_url:
+        from app.services import telegram
+        photo_url = await telegram.get_chat_photo(telegram_id)
+        if photo_url:
+            update_data['photo_url'] = photo_url
+            needs_update = True
+            
+    if needs_update:
+        repository.update_employee(db, emp.id, schemas.EmployeeUpdate(**update_data))
+        db.refresh(emp)
+        
     return emp

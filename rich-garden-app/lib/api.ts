@@ -12,6 +12,7 @@ export type Order = {
     comment?: string;
     payment_method?: string;
     extras?: string; // JSON string
+    delivery_time?: string;
     created_at: string;
 };
 

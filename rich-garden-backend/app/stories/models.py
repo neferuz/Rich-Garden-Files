@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, BigInteger
 from datetime import datetime
 from app.database import Base
 
@@ -19,5 +19,5 @@ class StoryView(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     story_id = Column(Integer) # ForeignKey manually used for simplicity or add it properly
-    user_id = Column(Integer)
+    user_id = Column(BigInteger)
     viewed_at = Column(DateTime, default=datetime.utcnow)

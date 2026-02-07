@@ -6,3 +6,6 @@ def create_expense(db: Session, expense: schemas.ExpenseCreate):
 
 def get_expenses(db: Session):
     return repository.get_all(db)
+
+def delete_expense(db: Session, expense_id: int):
+    return repository.delete(db, expense_id)

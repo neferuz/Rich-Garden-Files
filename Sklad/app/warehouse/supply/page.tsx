@@ -271,7 +271,7 @@ export default function SupplyPage() {
                                     }}
                                     className="flex items-center gap-1 text-xs font-bold text-blue-600 uppercase tracking-wide pr-1"
                                 >
-                                    <Plus size={12} strokeWidth={3} /> Своя
+                                    <Plus size={12} strokeWidth={3} /> Новая
                                 </button>
                             )}
                         </div>

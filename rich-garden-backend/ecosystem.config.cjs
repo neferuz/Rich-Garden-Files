@@ -21,5 +21,21 @@ module.exports = {
       autorestart: true,
       watch: false,
     },
+    {
+      name: 'rich-garden-bot-main',
+      cwd: backendDir,
+      script: 'run_bot.py',
+      interpreter: fs.existsSync(venvPython) ? venvPython : 'python3',
+      autorestart: true,
+      watch: false,
+    },
+    {
+      name: 'rich-garden-bot-admin',
+      cwd: backendDir,
+      script: 'run_bot_admin.py',
+      interpreter: fs.existsSync(venvPython) ? venvPython : 'python3',
+      autorestart: true,
+      watch: false,
+    },
   ],
 };

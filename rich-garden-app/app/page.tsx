@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { BottomNav } from "@/components/BottomNav";
 import { useTelegramAuth } from '@/hooks/useTelegramAuth';
 import { useProducts } from '@/hooks/useProducts';
@@ -10,6 +11,7 @@ import { Stories } from "@/components/features/home/Stories";
 import { CategoryTabs } from "@/components/features/home/CategoryTabs";
 import { ProductRow } from "@/components/features/catalog/ProductRow";
 import { SearchOverlay } from "@/components/features/search/SearchOverlay";
+import { AnimatedBackground } from "@/components/features/home/AnimatedBackground";
 
 export default function ShopPage() {
   const telegramUser = useTelegramAuth();
@@ -20,21 +22,26 @@ export default function ShopPage() {
 
   const handleCategoryClick = (category: string) => {
     setActiveCategory(category);
-    if (category === "Все") {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      const element = document.getElementById(`section-${category}`);
-      if (element) {
-        const headerOffset = 80;
-        const elementPosition = element.getBoundingClientRect().top;
-        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-        window.scrollTo({ top: offsetPosition, behavior: "smooth" });
-      }
-    }
+    // Removed auto-scroll to keep position as requested
   };
 
+  // Sort product rows: "В наличии" first, then active category, then others
+  const sortedRowCategories = categories.filter(c => c !== "Все").sort((a, b) => {
+    const isAvailableA = a.toLowerCase() === 'в наличии';
+    const isAvailableB = b.toLowerCase() === 'в наличии';
+
+    if (isAvailableA) return -1;
+    if (isAvailableB) return 1;
+
+    if (a === activeCategory) return -1;
+    if (b === activeCategory) return 1;
+    return 0;
+  });
+
   return (
-    <div className="min-h-screen bg-gray-50 pb-32 font-sans selection:bg-black selection:text-white">
+    <div className="min-h-screen relative pb-32 font-sans selection:bg-black selection:text-white">
+      {/* Animated Mesh Gradient Background */}
+      <AnimatedBackground />
 
       {/* Search Overlay */}
       <SearchOverlay
@@ -52,33 +59,50 @@ export default function ShopPage() {
       {/* Hero Slider */}
       <HeroSlider />
 
-      {/* Stories */}
-      <Stories />
+      {/* Main Content Sheet Overlapping Banner */}
+      <div className="relative z-10 -mt-12 bg-white rounded-t-[48px] overflow-hidden min-h-screen pb-20 border-t border-black/5">
+        {/* Stories */}
+        <Stories />
 
-      {/* Category Tabs */}
-      <CategoryTabs
-        categories={categories}
-        activeCategory={activeCategory}
-        onCategoryClick={handleCategoryClick}
-      />
+        {/* Category Tabs */}
+        <CategoryTabs
+          categories={categories}
+          activeCategory={activeCategory}
+          onCategoryClick={handleCategoryClick}
+        />
 
-      {/* Dynamic Sections by Category */}
-      {categories.filter(c => c !== "Все").map((catName) => {
-        const catProducts = getProductsByCategory(catName);
-        if (catProducts.length === 0) return null;
+        {/* Dynamic Sections by Category */}
+        <motion.div layout className="space-y-6 mt-4">
+          {sortedRowCategories.map((catName) => {
+            const catProducts = getProductsByCategory(catName);
+            if (catProducts.length === 0) return null;
 
-        const catSlug = catProducts[0]?.category?.toLowerCase() || catName.toLowerCase();
+            const isFeatured = catName.toLowerCase() === 'в наличии';
+            const catSlug = isFeatured ? 'в наличии' : (catProducts[0]?.category?.toLowerCase() || catName.toLowerCase());
 
-        return (
-          <ProductRow
-            key={catName}
-            title={catName}
-            products={catProducts}
-            categorySlug={catSlug}
-            telegramUserId={telegramUser?.telegram_id}
-          />
-        );
-      })}
+            return (
+              <motion.div
+                layout
+                key={catName}
+                initial={{ opacity: 0.8, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{
+                  layout: { type: "spring", stiffness: 200, damping: 25 },
+                  opacity: { duration: 0.4 }
+                }}
+              >
+                <ProductRow
+                  title={catName}
+                  products={catProducts}
+                  categorySlug={catSlug}
+                  telegramUserId={telegramUser?.telegram_id}
+                  isFeatured={isFeatured}
+                />
+              </motion.div>
+            );
+          })}
+        </motion.div>
+      </div>
 
       {/* Bottom Navigation */}
       <BottomNav />
