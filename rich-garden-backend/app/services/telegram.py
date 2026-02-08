@@ -130,7 +130,9 @@ async def send_order_notification(order: dict, items_detail: str, image_limit: i
     if images:
         import os
         base_path = os.getcwd()
-        unique_images = list(set(images))[:10]
+        # Filter out anything that isn't a string to avoid 'unhashable type: dict'
+        clean_images = [img for img in images if isinstance(img, str) and img]
+        unique_images = list(set(clean_images))[:10]
         
         for img_path in unique_images:
             clean_path = img_path.lstrip('/')
