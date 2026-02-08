@@ -6,6 +6,7 @@ import { ChevronLeft, Check, Percent, MessageSquare } from "lucide-react"
 import { api, Client, OrderCreate } from "@/services/api"
 import { NotificationToast } from "@/components/shared/NotificationToast"
 import { motion, AnimatePresence } from "framer-motion"
+import ProtectedRoute from "@/components/ProtectedRoute"
 
 export default function CheckoutPage() {
     const router = useRouter()
@@ -141,166 +142,168 @@ export default function CheckoutPage() {
     ]
 
     return (
-        <motion.div
-            initial="hidden"
-            animate="visible"
-            className="min-h-screen bg-[#F2F1F6] pb-32"
-        >
-            <AnimatePresence>
-                {notification && <NotificationToast msg={notification.msg} type={notification.type} />}
-            </AnimatePresence>
-
-            {/* Header */}
-            <header className="bg-white/80 backdrop-blur-xl border-b border-gray-200/50 sticky top-0 z-20 px-4 h-14 flex items-center justify-between">
-                <button
-                    onClick={() => router.back()}
-                    className="w-10 h-10 flex items-center justify-center rounded-full bg-white shadow-sm border border-gray-100 hover:bg-gray-50 active:scale-95 transition-all text-gray-900"
-                >
-                    <ChevronLeft size={24} className="relative right-[1px]" />
-                </button>
-                <div className="absolute left-1/2 -translate-x-1/2 font-bold text-[17px] text-gray-900">
-                    Оформление
-                </div>
-                <div className="w-10" />
-            </header>
-
+        <ProtectedRoute allowedRoles={['owner', 'admin', 'manager', 'worker']}>
             <motion.div
-                variants={containerVariants}
-                className="p-4 space-y-4 max-w-lg mx-auto"
+                initial="hidden"
+                animate="visible"
+                className="min-h-screen bg-[#F2F1F6] pb-32"
             >
-                {/* Client Card */}
-                <motion.div variants={itemVariants} className="bg-white rounded-[24px] p-4 shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-lg font-bold text-gray-500 overflow-hidden shrink-0">
-                            {client.photo_url ? (
-                                <img src={client.photo_url} alt={client.first_name} className="w-full h-full object-cover" />
-                            ) : (
-                                client.first_name?.[0] || 'U'
-                            )}
-                        </div>
-                        <div>
-                            <div className="text-[12px] text-gray-400 font-medium mb-0.5">Клиент</div>
-                            <div className="font-bold text-gray-900 text-[17px] leading-tight">{client.first_name}</div>
-                        </div>
-                    </div>
-                </motion.div>
+                <AnimatePresence>
+                    {notification && <NotificationToast msg={notification.msg} type={notification.type} />}
+                </AnimatePresence>
 
-                {/* Payment Method */}
-                <motion.div variants={itemVariants}>
-                    <h3 className="text-[13px] uppercase tracking-wider font-semibold text-gray-400 ml-4 mb-2">Оплата</h3>
-                    <div className="bg-white rounded-[24px] p-1.5 shadow-sm grid grid-cols-2 gap-1.5">
-                        {paymentMethods.map((method) => (
-                            <button
-                                key={method.id}
-                                onClick={() => setPaymentMethod(method.id as any)}
-                                className={`
+                {/* Header */}
+                <header className="bg-white/80 backdrop-blur-xl border-b border-gray-200/50 sticky top-0 z-20 px-4 h-14 flex items-center justify-between">
+                    <button
+                        onClick={() => router.back()}
+                        className="w-10 h-10 flex items-center justify-center rounded-full bg-white shadow-sm border border-gray-100 hover:bg-gray-50 active:scale-95 transition-all text-gray-900"
+                    >
+                        <ChevronLeft size={24} className="relative right-[1px]" />
+                    </button>
+                    <div className="absolute left-1/2 -translate-x-1/2 font-bold text-[17px] text-gray-900">
+                        Оформление
+                    </div>
+                    <div className="w-10" />
+                </header>
+
+                <motion.div
+                    variants={containerVariants}
+                    className="p-4 space-y-4 max-w-lg mx-auto"
+                >
+                    {/* Client Card */}
+                    <motion.div variants={itemVariants} className="bg-white rounded-[24px] p-4 shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-lg font-bold text-gray-500 overflow-hidden shrink-0">
+                                {client.photo_url ? (
+                                    <img src={client.photo_url} alt={client.first_name} className="w-full h-full object-cover" />
+                                ) : (
+                                    client.first_name?.[0] || 'U'
+                                )}
+                            </div>
+                            <div>
+                                <div className="text-[12px] text-gray-400 font-medium mb-0.5">Клиент</div>
+                                <div className="font-bold text-gray-900 text-[17px] leading-tight">{client.first_name}</div>
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    {/* Payment Method */}
+                    <motion.div variants={itemVariants}>
+                        <h3 className="text-[13px] uppercase tracking-wider font-semibold text-gray-400 ml-4 mb-2">Оплата</h3>
+                        <div className="bg-white rounded-[24px] p-1.5 shadow-sm grid grid-cols-2 gap-1.5">
+                            {paymentMethods.map((method) => (
+                                <button
+                                    key={method.id}
+                                    onClick={() => setPaymentMethod(method.id as any)}
+                                    className={`
                                     h-12 rounded-[18px] text-[15px] font-bold transition-all duration-300 relative overflow-hidden
                                     ${paymentMethod === method.id
-                                        ? 'bg-black text-white shadow-md shadow-black/10 scale-[1.02]'
-                                        : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
-                                    }
+                                            ? 'bg-black text-white shadow-md shadow-black/10 scale-[1.02]'
+                                            : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                                        }
                                 `}
-                            >
-                                {method.label}
-                                {paymentMethod === method.id && (
-                                    <motion.div
-                                        layoutId="activePaymentIndicator"
-                                        className="absolute inset-0 bg-white/10"
-                                        initial={false}
-                                        transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                                    />
-                                )}
-                            </button>
-                        ))}
-                    </div>
-                </motion.div>
+                                >
+                                    {method.label}
+                                    {paymentMethod === method.id && (
+                                        <motion.div
+                                            layoutId="activePaymentIndicator"
+                                            className="absolute inset-0 bg-white/10"
+                                            initial={false}
+                                            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                                        />
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    </motion.div>
 
-                {/* Discount & Comment */}
-                <motion.div variants={itemVariants} className="space-y-3">
-                    {/* Discount Input (Percentage) */}
-                    <div className="bg-white rounded-[24px] px-4 h-14 flex items-center shadow-sm transition-all focus-within:ring-2 focus-within:ring-black/5 relative justify-between">
-                        <div className="flex items-center gap-3 w-full">
-                            <span className="text-gray-400 font-medium">Скидка</span>
-                            <input
-                                type="text"
-                                inputMode="numeric"
-                                placeholder="0"
-                                value={discountPercent}
-                                onChange={(e) => {
-                                    const val = e.target.value.replace(/\D/g, '').slice(0, 3)
-                                    if (Number(val) <= 100) setDiscountPercent(val)
-                                }}
-                                className="w-16 h-full font-bold text-gray-900 placeholder:text-gray-300 focus:outline-none bg-transparent text-[18px] text-center"
-                            />
-                            <Percent size={20} className="text-gray-400" />
+                    {/* Discount & Comment */}
+                    <motion.div variants={itemVariants} className="space-y-3">
+                        {/* Discount Input (Percentage) */}
+                        <div className="bg-white rounded-[24px] px-4 h-14 flex items-center shadow-sm transition-all focus-within:ring-2 focus-within:ring-black/5 relative justify-between">
+                            <div className="flex items-center gap-3 w-full">
+                                <span className="text-gray-400 font-medium">Скидка</span>
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    placeholder="0"
+                                    value={discountPercent}
+                                    onChange={(e) => {
+                                        const val = e.target.value.replace(/\D/g, '').slice(0, 3)
+                                        if (Number(val) <= 100) setDiscountPercent(val)
+                                    }}
+                                    className="w-16 h-full font-bold text-gray-900 placeholder:text-gray-300 focus:outline-none bg-transparent text-[18px] text-center"
+                                />
+                                <Percent size={20} className="text-gray-400" />
+                            </div>
+                            {discountAmount > 0 && (
+                                <div className="text-red-500 font-bold text-sm whitespace-nowrap">
+                                    -{discountAmount.toLocaleString()} сум
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Comment Input */}
+                        <div className="bg-white rounded-[24px] px-4 py-3 shadow-sm transition-all focus-within:ring-2 focus-within:ring-black/5">
+                            <div className="flex gap-3">
+                                <MessageSquare size={20} className="text-gray-400 mt-1" />
+                                <textarea
+                                    placeholder="Комментарий к заказу..."
+                                    value={comment}
+                                    onChange={(e) => setComment(e.target.value)}
+                                    className="flex-1 min-h-[80px] font-medium text-gray-900 placeholder:text-gray-400 focus:outline-none bg-transparent text-[16px] resize-none"
+                                />
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    {/* Summary */}
+                    <motion.div variants={itemVariants} className="bg-white rounded-[24px] p-5 shadow-sm space-y-3">
+                        <div className="flex items-center justify-between text-[15px]">
+                            <span className="text-gray-500">Товары ({cart.reduce((a, b) => a + b.quantity, 0)} шт)</span>
+                            <span className="font-semibold text-gray-900">{totalAmount.toLocaleString()} сум</span>
                         </div>
                         {discountAmount > 0 && (
-                            <div className="text-red-500 font-bold text-sm whitespace-nowrap">
-                                -{discountAmount.toLocaleString()} сум
+                            <div className="flex items-center justify-between text-[15px] text-red-500">
+                                <span>Скидка ({percentValue}%)</span>
+                                <span className="font-bold">-{discountAmount.toLocaleString()} сум</span>
                             </div>
                         )}
-                    </div>
-
-                    {/* Comment Input */}
-                    <div className="bg-white rounded-[24px] px-4 py-3 shadow-sm transition-all focus-within:ring-2 focus-within:ring-black/5">
-                        <div className="flex gap-3">
-                            <MessageSquare size={20} className="text-gray-400 mt-1" />
-                            <textarea
-                                placeholder="Комментарий к заказу..."
-                                value={comment}
-                                onChange={(e) => setComment(e.target.value)}
-                                className="flex-1 min-h-[80px] font-medium text-gray-900 placeholder:text-gray-400 focus:outline-none bg-transparent text-[16px] resize-none"
-                            />
+                        <div className="h-px bg-gray-100 my-1" />
+                        <div className="flex items-center justify-between text-lg">
+                            <span className="font-bold text-gray-900">Итого</span>
+                            <span className="font-bold text-gray-900">{finalTotal.toLocaleString()} сум</span>
                         </div>
-                    </div>
+                    </motion.div>
+
                 </motion.div>
 
-                {/* Summary */}
-                <motion.div variants={itemVariants} className="bg-white rounded-[24px] p-5 shadow-sm space-y-3">
-                    <div className="flex items-center justify-between text-[15px]">
-                        <span className="text-gray-500">Товары ({cart.reduce((a, b) => a + b.quantity, 0)} шт)</span>
-                        <span className="font-semibold text-gray-900">{totalAmount.toLocaleString()} сум</span>
-                    </div>
-                    {discountAmount > 0 && (
-                        <div className="flex items-center justify-between text-[15px] text-red-500">
-                            <span>Скидка ({percentValue}%)</span>
-                            <span className="font-bold">-{discountAmount.toLocaleString()} сум</span>
-                        </div>
-                    )}
-                    <div className="h-px bg-gray-100 my-1" />
-                    <div className="flex items-center justify-between text-lg">
-                        <span className="font-bold text-gray-900">Итого</span>
-                        <span className="font-bold text-gray-900">{finalTotal.toLocaleString()} сум</span>
-                    </div>
-                </motion.div>
-
-            </motion.div>
-
-            {/* Floating Action Button area */}
-            <motion.div
-                initial={{ y: 100 }}
-                animate={{ y: 0 }}
-                transition={{ type: "spring", stiffness: 200, damping: 25, delay: 0.3 }}
-                className="fixed bottom-6 left-4 right-4 max-w-lg mx-auto z-30"
-            >
-                <button
-                    onClick={handleProcessOrder}
-                    disabled={processing}
-                    className="w-full h-14 bg-black text-white rounded-[22px] font-bold text-[17px] shadow-xl shadow-black/20 hover:bg-gray-800 active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 relative overflow-hidden"
+                {/* Floating Action Button area */}
+                <motion.div
+                    initial={{ y: 100 }}
+                    animate={{ y: 0 }}
+                    transition={{ type: "spring", stiffness: 200, damping: 25, delay: 0.3 }}
+                    className="fixed bottom-6 left-4 right-4 max-w-lg mx-auto z-30"
                 >
-                    {processing ? (
-                        <div className="flex items-center gap-2">
-                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            <span>Создание...</span>
-                        </div>
-                    ) : (
-                        <div className="flex items-center gap-2">
-                            <span>Подтвердить {finalTotal.toLocaleString()}</span>
-                            <Check size={20} strokeWidth={2.5} />
-                        </div>
-                    )}
-                </button>
+                    <button
+                        onClick={handleProcessOrder}
+                        disabled={processing}
+                        className="w-full h-14 bg-black text-white rounded-[22px] font-bold text-[17px] shadow-xl shadow-black/20 hover:bg-gray-800 active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 relative overflow-hidden"
+                    >
+                        {processing ? (
+                            <div className="flex items-center gap-2">
+                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                <span>Создание...</span>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2">
+                                <span>Подтвердить {finalTotal.toLocaleString()}</span>
+                                <Check size={20} strokeWidth={2.5} />
+                            </div>
+                        )}
+                    </button>
+                </motion.div>
             </motion.div>
-        </motion.div>
+        </ProtectedRoute>
     )
 }

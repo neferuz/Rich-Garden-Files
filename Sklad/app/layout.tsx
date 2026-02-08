@@ -1,13 +1,11 @@
 import type { Metadata } from 'next'
-import { usePathname } from 'next/navigation'
 import { Manrope } from 'next/font/google'
 import './globals.css'
 import Navbar from '@/components/Navbar'
 import BottomNav from '@/components/BottomNav'
-
 import { AuthProvider } from '@/context/AuthContext'
 import { TelegramProvider } from '@/components/providers/TelegramProvider'
-
+import AdminWrapper from '@/components/AdminWrapper'
 import { Toaster } from 'sonner'
 
 const manrope = Manrope({
@@ -37,7 +35,9 @@ export default function RootLayout({
           <TelegramProvider>
             <Toaster position="top-center" richColors />
             <Navbar />
-            {children}
+            <AdminWrapper>
+              {children}
+            </AdminWrapper>
             <BottomNav />
           </TelegramProvider>
         </AuthProvider>

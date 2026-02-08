@@ -100,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         const employeeData = await api.checkEmployeeAccess(telegramUser.id, telegramUser.username)
 
                         // SUPERUSER BYPASS for Feruz (ID: 670031187)
-                        if (!employeeData && (telegramUser.id === 670031187 || telegramUser.id === 670031187)) {
+                        if (!employeeData && telegramUser.id === 670031187) {
                             console.log("Auth: Superuser background bypass applied for ID 670031187")
                             setEmployee({
                                 id: 999999,

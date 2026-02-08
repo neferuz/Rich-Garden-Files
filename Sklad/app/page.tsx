@@ -50,8 +50,10 @@ function HomeContent() {
 
 export default function Home() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <HomeContent />
-    </Suspense>
+    <ProtectedRoute allowedRoles={['owner', 'admin', 'manager', 'worker', 'finance']}>
+      <Suspense fallback={<div>Loading...</div>}>
+        <HomeContent />
+      </Suspense>
+    </ProtectedRoute>
   )
 }

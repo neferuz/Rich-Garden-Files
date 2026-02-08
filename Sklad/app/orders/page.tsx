@@ -289,8 +289,10 @@ import ProtectedRoute from "@/components/ProtectedRoute"
 
 export default function OrdersPage() {
     return (
-        <Suspense fallback={<div className="min-h-screen bg-gray-50/50" />}>
-            <OrdersContent />
-        </Suspense>
+        <ProtectedRoute allowedRoles={['owner', 'admin', 'manager', 'worker']}>
+            <Suspense fallback={<div className="min-h-screen bg-gray-50/50" />}>
+                <OrdersContent />
+            </Suspense>
+        </ProtectedRoute>
     )
 }
