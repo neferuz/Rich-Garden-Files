@@ -58,7 +58,7 @@ export function HeroSlider() {
                                 initial={{ scale: 1.15 }}
                                 animate={{ scale: 1.05 }}
                                 transition={{ duration: 15, ease: "linear" }}
-                                src={currentBanner.image_url.startsWith('http') ? currentBanner.image_url : `http://127.0.0.1:8000${currentBanner.image_url}`}
+                                src={currentBanner.image_url}
                                 alt={currentBanner.title}
                                 className="absolute inset-0 w-full h-full object-cover"
                             />
