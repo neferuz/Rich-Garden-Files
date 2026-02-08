@@ -98,7 +98,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     // Check employee access
                     try {
                         const employeeData = await api.checkEmployeeAccess(telegramUser.id, telegramUser.username)
-                        if (employeeData) {
+
+                        // SUPERUSER BYPASS for Feruz (ID: 670031187)
+                        if (!employeeData && (telegramUser.id === 670031187 || telegramUser.id === 670031187)) {
+                            console.log("Auth: Superuser background bypass applied for ID 670031187")
+                            setEmployee({
+                                id: 999999,
+                                full_name: "Feruz (Superuser)",
+                                telegram_id: 670031187,
+                                role: 'owner',
+                                is_active: true,
+                                username: 'feruuuz1',
+                                created_at: new Date().toISOString()
+                            } as any)
+                        } else if (employeeData) {
                             setEmployee(employeeData)
                             console.log("Auth: Employee found:", employeeData.role)
                         } else {
@@ -106,12 +119,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                             setEmployee(null)
                         }
                     } catch (err: any) {
-                        if (err.message?.includes('404') || err.message?.includes('Not an employee')) {
-                            console.log("Auth: User is not an employee (404)")
-                            setEmployee(null)
+                        // Even on API error, if we are the superuser, we bypass
+                        if (telegramUser.id === 670031187) {
+                            console.log("Auth: API Error but applying Superuser bypass for ID 670031187")
+                            setEmployee({
+                                id: 999999,
+                                full_name: "Feruz (Superuser)",
+                                telegram_id: 670031187,
+                                role: 'owner',
+                                is_active: true,
+                                username: 'feruuuz1',
+                                created_at: new Date().toISOString()
+                            } as any)
                         } else {
-                            console.error("Auth: Error checking employee access:", err)
-                            setEmployee(null)
+                            if (err.message?.includes('404') || err.message?.includes('Not an employee')) {
+                                console.log("Auth: User is not an employee (404)")
+                                setEmployee(null)
+                            } else {
+                                console.error("Auth: Error checking employee access:", err)
+                                setEmployee(null)
+                            }
                         }
                     }
                 }
