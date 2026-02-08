@@ -102,7 +102,13 @@ async def send_order_notification(order: dict, items_detail: str, image_limit: i
         extras_text += f"\n💌 <b>Открытка:</b> {escape_html(extras['postcard'])}"
     
     if extras.get('wow_effect'):
-         wow_label = wow_effects_map.get(extras['wow_effect'], extras['wow_effect'])
+         we_val = extras['wow_effect']
+         if isinstance(we_val, dict):
+             # Handle dict value (e.g. from frontend object)
+             wow_label = we_val.get('title') or we_val.get('name') or str(we_val)
+         else:
+             # Handle string value (hashable)
+             wow_label = wow_effects_map.get(we_val, we_val)
          extras_text += f"\n🎭 <b>Вау-эффект:</b> {wow_label}"
     
     if extras.get('addons'):
