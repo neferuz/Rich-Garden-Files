@@ -86,12 +86,7 @@ export function Navbar({ telegramUser, onSearchClick }: NavbarProps) {
                         <Search size={21} strokeWidth={1.5} />
                     </button>
 
-                    <Link
-                        href="/cart"
-                        className="relative w-10 h-10 rounded-full flex items-center justify-center text-gray-800 hover:bg-gray-100/40 active:scale-90 transition-all font-sans"
-                    >
-                        <ShoppingBag size={21} strokeWidth={1.5} />
-                    </Link>
+
                 </div>
             </div>
         </nav>

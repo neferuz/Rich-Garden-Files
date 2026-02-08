@@ -4,12 +4,22 @@ import { ChevronRight, X, Loader2, Play } from 'lucide-react';
 import { api, Story } from "@/lib/api";
 import { useTelegramAuth } from "@/hooks/useTelegramAuth";
 
-export function Stories() {
+interface StoriesProps {
+    onStoryOpen?: (isOpen: boolean) => void;
+}
+
+export function Stories({ onStoryOpen }: StoriesProps) {
     const telUser = useTelegramAuth();
     const [stories, setStories] = useState<Story[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeStoryIndex, setActiveStoryIndex] = useState<number | null>(null);
     const activeStory = activeStoryIndex !== null ? stories[activeStoryIndex] : null;
+
+    useEffect(() => {
+        if (onStoryOpen) {
+            onStoryOpen(activeStoryIndex !== null);
+        }
+    }, [activeStoryIndex, onStoryOpen]);
 
     useEffect(() => {
         api.getStories(telUser?.telegram_id)

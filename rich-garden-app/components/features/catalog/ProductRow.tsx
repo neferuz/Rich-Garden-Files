@@ -46,7 +46,7 @@ export function ProductRow({
   return (
     <div
       id={`section-${title}`}
-      className={`mb-0 py-4 transition-all duration-500 ${isFeatured ? 'bg-gradient-to-r from-gray-50 via-gray-100/30 to-gray-50 border border-gray-200/60 relative overflow-hidden rounded-[32px] mx-2' : ''}`}
+      className={`mb-0 py-2 transition-all duration-500 ${isFeatured ? 'bg-gradient-to-r from-gray-50 via-gray-100/30 to-gray-50 border border-gray-200/60 relative overflow-hidden rounded-[32px] mx-2' : ''}`}
     >
       {isFeatured && (
         <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">

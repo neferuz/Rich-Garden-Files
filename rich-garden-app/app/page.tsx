@@ -19,6 +19,7 @@ export default function ShopPage() {
 
   const [activeCategory, setActiveCategory] = useState("Все");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isStoriesOpen, setIsStoriesOpen] = useState(false);
 
   const handleCategoryClick = (category: string) => {
     setActiveCategory(category);
@@ -51,10 +52,12 @@ export default function ShopPage() {
       />
 
       {/* Top Navbar */}
-      <Navbar
-        telegramUser={telegramUser}
-        onSearchClick={() => setIsSearchOpen(true)}
-      />
+      <div className={`transition-opacity duration-300 ${isStoriesOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        <Navbar
+          telegramUser={telegramUser}
+          onSearchClick={() => setIsSearchOpen(true)}
+        />
+      </div>
 
       {/* Hero Slider */}
       <HeroSlider />
@@ -62,7 +65,7 @@ export default function ShopPage() {
       {/* Main Content Sheet Overlapping Banner */}
       <div className="relative z-10 -mt-12 bg-white rounded-t-[48px] overflow-hidden min-h-screen pb-20 border-t border-black/5">
         {/* Stories */}
-        <Stories />
+        <Stories onStoryOpen={setIsStoriesOpen} />
 
         {/* Category Tabs */}
         <CategoryTabs
@@ -72,7 +75,7 @@ export default function ShopPage() {
         />
 
         {/* Dynamic Sections by Category */}
-        <motion.div layout className="space-y-6 mt-4">
+        <motion.div layout className="space-y-2 mt-2">
           {sortedRowCategories.map((catName) => {
             const catProducts = getProductsByCategory(catName);
             if (catProducts.length === 0) return null;
@@ -105,7 +108,9 @@ export default function ShopPage() {
       </div>
 
       {/* Bottom Navigation */}
-      <BottomNav />
+      <div className={`transition-opacity duration-300 ${isStoriesOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        <BottomNav />
+      </div>
     </div>
   );
 }
