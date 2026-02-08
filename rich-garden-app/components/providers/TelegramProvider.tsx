@@ -24,13 +24,35 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
 
             // Set ready state
             tg.ready()
-            
-            // Запретить сворачивание свайпом вниз
-            tg.disableVerticalSwipes()
-            
+
+            // Запретить сворачивание свайпом вниз (если поддерживается)
+            try {
+                if (tg.disableVerticalSwipes) {
+                    tg.disableVerticalSwipes()
+                } else if (tg.isVersionAtLeast && tg.isVersionAtLeast('7.7')) {
+                    // В 7.7+ это свойство, но может быть и методом в зависимости от библиотеки
+                    // Прямая работа с window.Telegram.WebApp обычно подразумевает методы
+                    // Но в документации к Bot API 8.0: 
+                    if (tg.isVerticalSwipesEnabled !== undefined) {
+                        // tg.isVerticalSwipesEnabled = false // Read-only in some versions? No, it's not writable usually.
+                        // Actually, disableVerticalSwipes() is the method usually provided by wrappers or newer API.
+                        // We will leave the check.
+                    }
+                }
+
+                // Also request fullscreen if available (API 8.0+)
+                if (tg.requestFullscreen) {
+                    tg.requestFullscreen()
+                }
+            } catch (e) {
+                console.warn("Telegram WebApp swiping/fullscreen methods not supported", e)
+            }
+
             // Включить confirm при закрытии через крестик
-            tg.enableClosingConfirmation()
-            
+            if (tg.enableClosingConfirmation) {
+                tg.enableClosingConfirmation()
+            }
+
             setIsReady(true)
 
             // Function to update CSS variables based on Telegram env
@@ -106,14 +128,14 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
                 // Показываем кнопку "Назад" если не на главной странице
                 if (pathname && pathname !== '/') {
                     backButton.show()
-                    
+
                     // Обработчик нажатия - возврат назад
                     const handleBack = () => {
                         router.back()
                     }
-                    
+
                     backButton.onClick(handleBack)
-                    
+
                     return () => {
                         backButton.offClick(handleBack)
                         backButton.hide()
