@@ -140,18 +140,57 @@ async def send_order_notification(order: dict, items_detail: str, image_limit: i
         clean_images = [img for img in images if isinstance(img, str) and img]
         unique_images = list(set(clean_images))[:10]
         
+        print(f"DEBUG: Processing {len(unique_images)} images relative to {base_path}")
         for img_path in unique_images:
             clean_path = img_path.lstrip('/')
-            candidates = [
-                os.path.join(base_path, clean_path),
-                os.path.join(base_path, 'app', clean_path),
-                os.path.join(base_path, 'app', 'static', clean_path),
+            if not clean_path:
+                continue
+            
+            # Check directly first (if path is absolute or relative to CWD)
+            candidates = []
+            
+            # 1. Absolute path check (if it starts with /var/www...) or CWD relative
+            if os.path.exists(img_path):
+                 candidates.append(img_path)
+            
+            # 2. Construct paths relative to backend root
+            # Assumes CWD is where we launch python, usually backend root or app root
+            # Common pattern: clean_path is like "static/uploads/uuid.jpg" or "/static/uploads/uuid.jpg"
+            
+            # Adjust for potential missing leading parts
+            # e.g. if DB has "/static/uploads/foo.jpg" -> we need "app/static/uploads/foo.jpg"
+            
+            common_roots = [
+                base_path,                            # /var/www/.../rich-garden-backend
+                os.path.join(base_path, 'app'),       # /var/www/.../rich-garden-backend/app
             ]
+            
+            for root in common_roots:
+                # Try raw join
+                candidates.append(os.path.join(root, clean_path))
+                
+                # Try with 'static' prefix if missing
+                if not clean_path.startswith('static'):
+                     candidates.append(os.path.join(root, 'static', clean_path))
+                
+                # Try without 'static' if double (less likely but possible)
+                if clean_path.startswith('static/'):
+                     candidates.append(os.path.join(root, clean_path.replace('static/', '', 1)))
+            
+            # Special case for "uploads" direct link
+            if clean_path.startswith('uploads/'):
+                 candidates.append(os.path.join(base_path, 'app', 'static', clean_path))
+
+            found = False
             for p in candidates:
-                if os.path.exists(p):
+                if os.path.exists(p) and os.path.isfile(p):
                     valid_images_paths.append(p)
+                    print(f"DEBUG: Found image at {p}")
+                    found = True
                     break
-        print(f"DEBUG: Resolved valid_images_paths: {valid_images_paths}")
+            
+            if not found:
+                print(f"DEBUG: Image NOT found. Tried: {candidates}")
 
     message = (
         f"<b>Заказ #{order['id']}</b>\n"
