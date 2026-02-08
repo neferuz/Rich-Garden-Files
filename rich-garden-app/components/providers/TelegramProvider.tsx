@@ -41,11 +41,12 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
                 }
 
                 // Also request fullscreen if available (API 8.0+)
-                if (tg.requestFullscreen) {
-                    tg.requestFullscreen()
-                }
+                // User asked to remove FullScreen, just stick to Expand (Full Size)
+                // if (tg.requestFullscreen) {
+                //    tg.requestFullscreen()
+                // }
             } catch (e) {
-                console.warn("Telegram WebApp swiping/fullscreen methods not supported", e)
+                console.warn("Telegram WebApp swiping methods not supported", e)
             }
 
             // Включить confirm при закрытии через крестик
