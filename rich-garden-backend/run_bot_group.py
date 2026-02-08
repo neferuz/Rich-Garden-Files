@@ -33,51 +33,49 @@ async def answer_callback(callback_id: str, text: str, alert: bool = False):
         return r
 
 
-def parse_callback_data(data: str) -> tuple[str | None, str | None]:
-    """Parse set_ACTION_orderId -> (action, order_id)."""
-    if not data or not data.startswith("set_"):
-        return None, None
-    parts = data.split("_")
-    if len(parts) != 3:
-        return None, None
-    action, order_id = parts[1], parts[2]
-    if action not in ("processing", "shipping", "done", "cancelled"):
-        return None, None
-    return action, order_id
-
-
 async def handle_callback(update: dict):
     cq = update.get("callback_query")
     if not cq:
         return
 
-    callback_id = cq["id"]
     data = cq.get("data") or ""
-
     print(f"[group-bot] callback: {data!r}")
 
-    action, order_id = parse_callback_data(data)
-    if not action or not order_id:
-        print(f"[group-bot] invalid format, ignoring")
-        await answer_callback(callback_id, "Неизвестная кнопка", alert=True)
+    # Parse callback data: "set_STATUS_ORDERID" -> (STATUS, ORDERID)
+    parts = data.split("_")
+    if len(parts) != 3 or parts[0] != "set":
+        print(f"[group-bot] invalid format: {data}")
+        await answer_callback(cq["id"], "Неверный формат кнопки", alert=True)
         return
 
-    status = action  # processing, shipping, done, cancelled
+    action = parts[1]
+    order_id = parts[2]
+    
+    # Map action to status if they differ, or use action as status
+    # In your buttons: callback_data=f"set_{new_status}_{order.id}"
+    # So action IS the new status.
+    status = action 
+
     url = f"{API_URL}/orders/{order_id}/status"
+    print(f"[group-bot] Updating order {order_id} to {status} via {url}")
 
     try:
         async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
             r = await client.patch(url, json={"status": status})
+            
         if r.status_code == 200:
             print(f"[group-bot] order {order_id} -> {status} OK")
-            await answer_callback(callback_id, f"Статус обновлен: {status}")
+            # Show a simple toast (not alert)
+            await answer_callback(cq["id"], f"Статус обновлен: {status}")
         else:
-            err = r.text[:200] if r.text else f"HTTP {r.status_code}"
-            print(f"[group-bot] order {order_id} -> {status} FAIL: {err}")
-            await answer_callback(callback_id, "Ошибка обновления статуса", alert=True)
+            err_text = r.text[:100] if r.text else f"Code {r.status_code}"
+            print(f"[group-bot] FAIL: {r.status_code} {err_text}")
+            # Show ALERT with error details
+            await answer_callback(cq["id"], f"Ошибка {r.status_code}: {err_text}", alert=True)
+
     except Exception as e:
-        print(f"[group-bot] error: {e}")
-        await answer_callback(callback_id, "Ошибка бота", alert=True)
+        print(f"[group-bot] Network/Code error: {e}")
+        await answer_callback(cq["id"], f"Сбой бота: {str(e)}", alert=True)
 
 
 async def main():
