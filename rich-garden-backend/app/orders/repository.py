@@ -41,14 +41,19 @@ def get_all(db: Session, status: str = None):
     return q.all()
 
 def get_by_id(db: Session, order_id: int):
-    return db.query(models.Order).filter(models.Order.id == order_id).first()
+    print(f"DEBUG: get_by_id called with order_id={order_id}")
+    ord = db.query(models.Order).filter(models.Order.id == order_id).first()
+    print(f"DEBUG: get_by_id result for {order_id}: {ord}")
+    return ord
 
 def get_by_user_id(db: Session, user_id: int):
     return db.query(models.Order).filter(models.Order.user_id == user_id).order_by(models.Order.created_at.desc()).all()
 
 def update_status(db: Session, order_id: int, status_update: schemas.OrderUpdateStatus):
+    print(f"DEBUG: update_status called for order_id={order_id}")
     order = get_by_id(db, order_id)
     if not order:
+        print(f"DEBUG: update_status failed - Order {order_id} not found in DB")
         return None
     
     new_status = status_update.status
