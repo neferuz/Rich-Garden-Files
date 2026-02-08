@@ -39,10 +39,16 @@
 }
 
 @layer base {
+  html {
+    height: 100%;
+    overscroll-behavior-y: none;
+  }
+
   body {
     @apply text-foreground;
     background-color: #ffffff;
     font-family: 'Manrope', sans-serif;
+    height: 100%;
 
     /* Native App Feel */
     -webkit-tap-highlight-color: transparent;
