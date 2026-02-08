@@ -57,69 +57,85 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
+        let attempts = 0;
+        const maxAttempts = 20;
+
         const initAuth = async () => {
-            console.log("Auth: Starting initialization...")
-            try {
-                // 1. Get Telegram User
-                let telegramUser: TelegramUser | null = null
+            if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
+                const webApp = window.Telegram.WebApp
+                webApp.ready()
+                webApp.expand()
 
-                if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
-                    const webApp = window.Telegram.WebApp
-                    console.log("Auth: Telegram WebApp detected")
-                    webApp.ready()
-                    webApp.expand()
+                // Check if running inside Telegram
+                const isInTelegram = !!webApp.initData;
+                let telegramUser: TelegramUser | null = null;
 
-                    if (webApp.initDataUnsafe?.user) {
-                        telegramUser = webApp.initDataUnsafe.user
-                        console.log("Auth: Received user from Telegram:", telegramUser.first_name)
-                    }
+                if (webApp.initDataUnsafe?.user) {
+                    telegramUser = webApp.initDataUnsafe.user
+                    console.log("Auth: Received user from Telegram:", telegramUser.first_name)
                 }
 
-                // FALLBACK MOCK USER
+                // Fallback / Mock User logic
                 if (!telegramUser) {
-                    console.log("Auth: No Telegram user found, using fallback...")
-                    telegramUser = {
-                        id: 670031187,
-                        first_name: "Feruz",
-                        last_name: "Owner",
-                        username: "feruuuz1",
-                        photo_url: "https://xsgames.co/randomusers/assets/avatars/male/46.jpg"
+                    if (!isInTelegram) {
+                        console.log("Auth: Not in Telegram, using mock user...")
+                        telegramUser = {
+                            id: 670031187,
+                            first_name: "Feruz",
+                            last_name: "Owner",
+                            username: "feruuuz1",
+                            photo_url: "https://xsgames.co/randomusers/assets/avatars/male/46.jpg"
+                        }
+                    } else {
+                        // In Telegram but no user data? Unusual but possible.
+                        console.log("Auth: In Telegram but no user data found.")
                     }
                 }
 
-                setUser(telegramUser)
+                if (telegramUser) {
+                    setUser(telegramUser)
 
-                // 2. Check if user is an employee
-                try {
-                    const employeeData = await api.checkEmployeeAccess(telegramUser.id, telegramUser.username)
-                    if (employeeData) {
-                        setEmployee(employeeData)
-                        console.log("Auth: Employee found:", employeeData.role)
-                    } else {
-                        console.log("Auth: User is not an employee")
-                        setEmployee(null)
-                    }
-                } catch (err: any) {
-                    // 404 means user is not an employee (expected)
-                    if (err.message?.includes('404') || err.message?.includes('Not an employee')) {
-                        console.log("Auth: User is not an employee (404)")
-                        setEmployee(null)
-                    } else {
-                        console.error("Auth: Error checking employee access:", err)
-                        setEmployee(null)
+                    // Check employee access
+                    try {
+                        const employeeData = await api.checkEmployeeAccess(telegramUser.id, telegramUser.username)
+                        if (employeeData) {
+                            setEmployee(employeeData)
+                            console.log("Auth: Employee found:", employeeData.role)
+                        } else {
+                            console.log("Auth: User is not an employee")
+                            setEmployee(null)
+                        }
+                    } catch (err: any) {
+                        if (err.message?.includes('404') || err.message?.includes('Not an employee')) {
+                            console.log("Auth: User is not an employee (404)")
+                            setEmployee(null)
+                        } else {
+                            console.error("Auth: Error checking employee access:", err)
+                            setEmployee(null)
+                        }
                     }
                 }
 
-                console.log("Auth: Initialization complete")
-            } catch (err) {
-                console.error("Auth: Error during initialization:", err)
-                setError("Ошибка при запуске приложения")
-            } finally {
                 setIsLoading(false)
+                return true; // Initialized
             }
+            return false; // Not yet
+        };
+
+        // Attempt initialization
+        const runInit = async () => {
+            if (await initAuth()) return;
+
+            const interval = setInterval(async () => {
+                attempts++;
+                if (await initAuth() || attempts >= maxAttempts) {
+                    clearInterval(interval);
+                    if (attempts >= maxAttempts) setIsLoading(false); // Stop loading even if failed
+                }
+            }, 100);
         }
 
-        initAuth()
+        runInit();
     }, [])
 
     return (
