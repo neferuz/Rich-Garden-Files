@@ -22,12 +22,14 @@
 
 html {
   overscroll-behavior-y: none;
+  height: 100%;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: "Manrope", sans-serif;
+  height: 100%;
 
   /* Native App Feel */
   -webkit-tap-highlight-color: transparent;
