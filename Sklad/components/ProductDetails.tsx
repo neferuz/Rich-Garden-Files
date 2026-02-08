@@ -327,11 +327,9 @@ export default function ProductDetails({ item, isModal = false, onClose }: { ite
                                         >
                                             <button
                                                 onClick={() => {
-                                                    setAsMainImage(selectedImageIndex || 0)
+                                                    setAsMainImage(allImages[selectedImageIndex || 0])
                                                     setIsImageMenuOpen(false)
                                                     setSelectedImageIndex(0)
-                                                    // Auto-save the change
-                                                    setTimeout(handleSave, 100)
                                                 }}
                                                 className="w-full h-12 px-4 flex items-center gap-3 text-white hover:bg-white/20 rounded-2xl transition-all"
                                             >

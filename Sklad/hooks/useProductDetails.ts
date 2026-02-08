@@ -180,15 +180,52 @@ export function useProductDetails(item?: any) {
         });
     };
 
-    const setAsMainImage = (index: number) => {
-        setImages(prev => {
-            if (index < 0 || index >= prev.length) return prev;
-            const newImgs = [...prev];
-            const target = newImgs.splice(index, 1)[0];
-            newImgs.unshift(target);
-            setImage(target);
-            return newImgs;
-        });
+    const setAsMainImage = async (imageUrl: string) => {
+        if (!imageUrl || imageUrl === image) return;
+
+        // Calculate new state
+        const currentMain = image;
+        const currentImages = [...images];
+
+        // New Logic: 
+        // 1. New Main = imageUrl
+        // 2. New Images List = [Old Main, ...Old Images] - (imageUrl)
+
+        const newMain = imageUrl;
+        // Construct new list: old main + current images, then filter out the new main to avoid diffs
+        const newImagesList = [currentMain, ...currentImages].filter(img => img && img !== newMain);
+
+        // Update Local State
+        setImage(newMain);
+        setImages(newImagesList);
+
+        // Immediate Save to Server
+        if (!item) return;
+        try {
+            const payload = {
+                name,
+                category,
+                stock_quantity: stock,
+                supplier,
+                cost_price: buyPrice,
+                price_raw: sellPrice,
+                price_display: `${sellPrice.toLocaleString().replace(/,/g, " ")} сум`,
+                image: newMain,
+                images: JSON.stringify(newImagesList),
+                composition: JSON.stringify(composition)
+            };
+
+            // @ts-ignore
+            const res = await api.updateProduct(Number(item.id), payload);
+            if (res && res.history) setHistory(res.history);
+            showNotification("Главное фото обновлено", "success");
+        } catch (err) {
+            console.error(err);
+            showNotification("Ошибка сохранения фото", "error");
+            // Revert state on error? (Optional, but good UX)
+            setImage(currentMain);
+            setImages(currentImages);
+        }
     };
 
     // Composition Handlers
