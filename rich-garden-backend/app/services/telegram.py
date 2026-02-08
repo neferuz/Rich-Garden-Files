@@ -410,7 +410,40 @@ async def update_order_status_message(message_id: int, order: dict, items_detail
     total_formatted = format_number(order['total_price'])
 
     # Extras formatting
-    # ... (wow effects logic)
+    extras_text = ""
+    
+    wow_effects_map = {
+        "violin": "Скрипач",
+        "brutal": "Брутальный мужчина",
+        "angel": "Ангел",
+        "sax": "Саксофонист"
+    }
+    
+    addons_map = {
+        "balloons": "Шары",
+        "sweets": "Сладости",
+        "toys": "Игрушки",
+        "bunny": "Игрушка-зайчик",
+        "bear": "Игрушка-мишка"
+    }
+
+    if extras.get('postcard'):
+        extras_text += f"\n💌 <b>Открытка:</b> {escape_html(extras['postcard'])}"
+    
+    if extras.get('wow_effect'):
+         we_val = extras['wow_effect']
+         if isinstance(we_val, dict):
+             # Handle dict value (e.g. from frontend object)
+             wow_label = we_val.get('title') or we_val.get('name') or str(we_val)
+         else:
+             # Handle string value (hashable)
+             wow_label = wow_effects_map.get(we_val, we_val)
+         extras_text += f"\n🎭 <b>Вау-эффект:</b> {wow_label}"
+    
+    if extras.get('addons'):
+        addons_list = [addons_map.get(a, a) for a in extras['addons']]
+        if addons_list:
+             extras_text += f"\n🎁 <b>Дополнения:</b> {', '.join(addons_list)}"
 
     message = (
         f"<b>Заказ #{order['id']}</b>\n"
