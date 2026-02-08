@@ -151,6 +151,7 @@ async def send_order_notification(order: dict, items_detail: str, image_limit: i
                 if os.path.exists(p):
                     valid_images_paths.append(p)
                     break
+        print(f"DEBUG: Resolved valid_images_paths: {valid_images_paths}")
 
     message = (
         f"<b>Заказ #{order['id']}</b>\n"
